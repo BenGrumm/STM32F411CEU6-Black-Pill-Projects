@@ -22,22 +22,24 @@
 
 void Init_ADC_Single(void);
 void Init_ADC_GPIO(void);
+void Init_ADC_Multi(uint32_t arrBaseAddr);
 
 #define NVIC_ISE_REG 							(0xE000E100UL)
 #define NVIC_CLR_PEND_REG						(0XE000E280UL)
 
+#define DMA2_BASE_ADDRESS						(0x40026400UL)
 #define DMA1_BASE_ADDRESS						(0x40026000UL)
 #define FLASH_BASE_ADDRESS						(0x40023C00UL)
 #define RCC_BASE_ADDRESS 						(0x40023800UL)
 #define ADC_BASE_ADDERSS						(0x40012000UL)
 #define GPIOA_BASE_ADDRESS						(0x40020000UL)
 
-#define DMA1_S0_CONFIG_REG_OFFSET				(0x10UL + (0x18UL * 0UL))
-#define DMA1_S0_NUM_DATA_REG_OFFSET				(0x14UL + (0x14UL * 0UL))
-#define DMA1_S0_PERIPH_ADDR_REG_OFFSET			(0x18UL + (0x18UL * 0UL))
-#define DMA1_S0_MEM_ADDR_0_REG_OFFSET			(0x1CUL + (0x18UL * 0UL))
-#define DMA1_S0_MEM_ADDR_1_REG_OFFSET			(0x20UL + (0x18UL * 0UL))
-#define DMA1_S0_FIFO_CONTROL_REG_OFFSET			(0x24UL + (0x24UL * 0UL))
+#define DMA_S0_CONFIG_REG_OFFSET				(0x10UL + (0x18UL * 0UL))
+#define DMA_S0_NUM_DATA_REG_OFFSET				(0x14UL + (0x14UL * 0UL))
+#define DMA_S0_PERIPH_ADDR_REG_OFFSET			(0x18UL + (0x18UL * 0UL))
+#define DMA_S0_MEM_ADDR_0_REG_OFFSET			(0x1CUL + (0x18UL * 0UL))
+#define DMA_S0_MEM_ADDR_1_REG_OFFSET			(0x20UL + (0x18UL * 0UL))
+#define DMA_S0_FIFO_CONTROL_REG_OFFSET			(0x24UL + (0x24UL * 0UL))
 
 #define RCC_CLOCK_CONTROL_OFFSET				(0x00UL)
 #define RCC_PLL_CLOCK_CONFIG_OFFSET				(0x04UL)
@@ -63,12 +65,19 @@ void Init_ADC_GPIO(void);
 #define ADC_DR_OFFSET							(0x4CUL)
 #define ADC_CCR_OFFSET							(0x04UL) // (this offset address is relative to ADC1 base address + 0x300)
 
-#define DMA1_S0_CONFIG_ADDRESS					(DMA1_BASE_ADDRESS + DMA1_S0_CONFIG_REG_OFFSET)
-#define DMA1_S0_NUM_DATA_ADDRESS				(DMA1_BASE_ADDRESS + DMA1_S0_NUM_DATA_REG_OFFSET)
-#define DMA1_S0_PERIPH_ADDR_ADDRESS				(DMA1_BASE_ADDRESS + DMA1_S0_PERIPH_ADDR_REG_OFFSET)
-#define DMA1_S0_MEM_ADDR_1_ADDRESS				(DMA1_BASE_ADDRESS + DMA1_S0_MEM_ADDR_0_REG_OFFSET)
-#define DMA1_S0_MEM_ADDR_2_ADDRESS				(DMA1_BASE_ADDRESS + DMA1_S0_MEM_ADDR_1_REG_OFFSET)
-#define DMA1_S0_FIFO_C_ADDRESS					(DMA1_BASE_ADDRESS + DMA1_S0_FIFO_CONTROL_REG_OFFSET)
+#define DMA2_S0_CONFIG_ADDRESS					(DMA2_BASE_ADDRESS + DMA_S0_CONFIG_REG_OFFSET)
+#define DMA2_S0_NUM_DATA_ADDRESS				(DMA2_BASE_ADDRESS + DMA_S0_NUM_DATA_REG_OFFSET)
+#define DMA2_S0_PERIPH_ADDR_ADDRESS				(DMA2_BASE_ADDRESS + DMA_S0_PERIPH_ADDR_REG_OFFSET)
+#define DMA2_S0_MEM_ADDR_1_ADDRESS				(DMA2_BASE_ADDRESS + DMA_S0_MEM_ADDR_0_REG_OFFSET)
+#define DMA2_S0_MEM_ADDR_2_ADDRESS				(DMA2_BASE_ADDRESS + DMA_S0_MEM_ADDR_1_REG_OFFSET)
+#define DMA2_S0_FIFO_C_ADDRESS					(DMA2_BASE_ADDRESS + DMA_S0_FIFO_CONTROL_REG_OFFSET)
+
+#define DMA1_S0_CONFIG_ADDRESS					(DMA1_BASE_ADDRESS + DMA_S0_CONFIG_REG_OFFSET)
+#define DMA1_S0_NUM_DATA_ADDRESS				(DMA1_BASE_ADDRESS + DMA_S0_NUM_DATA_REG_OFFSET)
+#define DMA1_S0_PERIPH_ADDR_ADDRESS				(DMA1_BASE_ADDRESS + DMA_S0_PERIPH_ADDR_REG_OFFSET)
+#define DMA1_S0_MEM_ADDR_1_ADDRESS				(DMA1_BASE_ADDRESS + DMA_S0_MEM_ADDR_0_REG_OFFSET)
+#define DMA1_S0_MEM_ADDR_2_ADDRESS				(DMA1_BASE_ADDRESS + DMA_S0_MEM_ADDR_1_REG_OFFSET)
+#define DMA1_S0_FIFO_C_ADDRESS					(DMA1_BASE_ADDRESS + DMA_S0_FIFO_CONTROL_REG_OFFSET)
 
 #define RCC_CLOCK_CONTROL_ADDRESS				(RCC_BASE_ADDRESS + RCC_CLOCK_CONTROL_OFFSET)
 #define RCC_PLL_ADDRESS							(RCC_BASE_ADDRESS + RCC_PLL_CLOCK_CONFIG_OFFSET)
@@ -99,15 +108,17 @@ void Init_ADC_GPIO(void);
 #endif
 
 volatile uint32_t ADCVal = 0;
-volatile uint16_t ADCArr[2] = {0, 0};
 
 int main(void)
 {
+	volatile uint16_t ADCArr[2] = {0, 0};
+
 	printf("Initing\n");
 
 	Init_ADC_GPIO();
 
-	Init_ADC_Single();
+	// Init_ADC_Single();
+	Init_ADC_Multi((uint32_t) ADCArr);
 
 	printf("Inited\n");
 
@@ -162,8 +173,9 @@ void Init_ADC_Single(void){
 	uint32_t *ADC_SMP_Time_2_Reg = (uint32_t*) ADC_SMPR2;
 	(*ADC_SMP_Time_2_Reg) |= (0x7 << 12);
 
-	// Enable & set to continuous
+	// Enable & set to continuous & set DDS bit
 	uint32_t *ADC_CR2_Reg = (uint32_t*) ADC_CR2;
+	(*ADC_CR2_Reg) |= (1 << 9);
 	(*ADC_CR2_Reg) |= (1 << 1);
 	(*ADC_CR2_Reg) |= (1 << 0);
 
@@ -182,14 +194,14 @@ void Init_ADC_Single(void){
 	(*ADC_CR2_Reg) |= (1 << 30);
 }
 
-void Init_ADC_Multi(void){
+void Init_ADC_Multi(uint32_t arrBaseAddr){
 	// Enable RCC ADC Clock
 	uint32_t *RCC_APB2_CE_Reg = (uint32_t*) RCC_APB2_CE_ADDRESS;
 	(*RCC_APB2_CE_Reg) |= (1 << 8);
 
 	// Enable DMA Clock On AHB1
 	uint32_t *AHB1_Bus = (uint32_t*) RCC_AHB1_CE_ADDRESS;
-	(*AHB1_Bus) |= (1 << 21);
+	(*AHB1_Bus) |= (1 << 22);
 
 	// Change ADC Pre-scaler So Clock Doesn't Exceed 36 MHz when Vdda > 2.4v (in data sheet under 12-bit ADC characteristics 6.3.20)
 	uint32_t *ADC_CC_Reg = (uint32_t*) ADC_CCR;
@@ -225,35 +237,34 @@ void Init_ADC_Multi(void){
 
 	// DMA Settings
 	// Set Address Of ADC Data Address In DMA Periph Address
-	uint32_t *DMA1_S0_Periph_Addr = (uint32_t*) DMA1_S0_PERIPH_ADDR_ADDRESS;
-	(*DMA1_S0_Periph_Addr) = (uint32_t) ADC_DR;
+	uint32_t *DMA2_S0_Periph_Addr = (uint32_t*) DMA2_S0_PERIPH_ADDR_ADDRESS;
+	(*DMA2_S0_Periph_Addr) = (uint32_t) ADC_DR;
 
 	// Tell DMA Where To Store Data (Create Array And Assign That)
-	uint32_t *DMA1_S0_Mem1_Addr = (uint32_t*) DMA1_S0_MEM_ADDR_1_ADDRESS;
-	(*DMA1_S0_Mem1_Addr) = (uint32_t) ADCArr;
+	uint32_t *DMA2_S0_Mem1_Addr = (uint32_t*) DMA2_S0_MEM_ADDR_1_ADDRESS;
+	(*DMA2_S0_Mem1_Addr) = (uint32_t) arrBaseAddr;
 
 	// Tell DMA number of data transfers (number of ADC channels / array elements)
-	uint32_t *DMA1_S0_Num_Data_Addr = (uint32_t*) DMA1_S0_NUM_DATA_ADDRESS;
-	(*DMA1_S0_Num_Data_Addr) = 2;
+	uint32_t *DMA2_S0_Num_Data_Addr = (uint32_t*) DMA2_S0_NUM_DATA_ADDRESS;
+	(*DMA2_S0_Num_Data_Addr) = 2;
 
 	// Enable Circular Mode
-	uint32_t *DMA1_S0_Config_Reg_Addr = (uint32_t*) DMA1_S0_CONFIG_ADDRESS;
-	(*DMA1_S0_Config_Reg_Addr) |= (1 << 8);
+	uint32_t *DMA2_S0_Config_Reg_Addr = (uint32_t*) DMA2_S0_CONFIG_ADDRESS;
+	(*DMA2_S0_Config_Reg_Addr) |= (1 << 8);
 
 	// Enable Memory Increment Mode So Will Write to next item in array
-	(*DMA1_S0_Config_Reg_Addr) |= (1 << 10);
+	(*DMA2_S0_Config_Reg_Addr) |= (1 << 10);
 
 	// Set size of peripheral output (16 bits)
-	(*DMA1_S0_Config_Reg_Addr) |= (1 << 11);
+	(*DMA2_S0_Config_Reg_Addr) |= (1 << 11);
 
 	// Set size of array elements (16 bits)
-	(*DMA1_S0_Config_Reg_Addr) |= (1 << 13);
+	(*DMA2_S0_Config_Reg_Addr) |= (1 << 13);
 
 	// Enable channel
-	(*DMA1_S0_Config_Reg_Addr) |= (1 << 0);
+	(*DMA2_S0_Config_Reg_Addr) |= (1 << 0);
 
 	// Enable & set to continuous
-	uint32_t *ADC_CR2_Reg = (uint32_t*) ADC_CR2;
 	(*ADC_CR2_Reg) |= (1 << 1);
 	(*ADC_CR2_Reg) |= (1 << 0);
 
