@@ -173,9 +173,8 @@ void Init_ADC_Single(void){
 	uint32_t *ADC_SMP_Time_2_Reg = (uint32_t*) ADC_SMPR2;
 	(*ADC_SMP_Time_2_Reg) |= (0x7 << 12);
 
-	// Enable & set to continuous & set DDS bit
+	// Enable & set to continuous
 	uint32_t *ADC_CR2_Reg = (uint32_t*) ADC_CR2;
-	(*ADC_CR2_Reg) |= (1 << 9);
 	(*ADC_CR2_Reg) |= (1 << 1);
 	(*ADC_CR2_Reg) |= (1 << 0);
 
@@ -231,8 +230,9 @@ void Init_ADC_Multi(uint32_t arrBaseAddr){
 	(*ADC_CR1_Reg) |= (1 << 8);
 
 
-	// Set DMA
+	// Set DMA and DDS
 	uint32_t *ADC_CR2_Reg = (uint32_t*) ADC_CR2;
+	(*ADC_CR2_Reg) |= (1 << 9);
 	(*ADC_CR2_Reg) |= (1 << 8);
 
 	// DMA Settings
