@@ -9,6 +9,7 @@ RM := rm -rf
 
 # All of the sources participating in the build are defined here
 -include sources.mk
+-include drivers/src/subdir.mk
 -include Startup/subdir.mk
 -include Src/subdir.mk
 -include subdir.mk
@@ -34,34 +35,34 @@ $(wildcard ../makefile.init) \
 $(wildcard ../makefile.targets) \
 
 
-BUILD_ARTIFACT_NAME := BlackPillFlash
+BUILD_ARTIFACT_NAME := STMF411CE_Header_Drivers
 BUILD_ARTIFACT_EXTENSION := elf
 BUILD_ARTIFACT_PREFIX :=
 BUILD_ARTIFACT := $(BUILD_ARTIFACT_PREFIX)$(BUILD_ARTIFACT_NAME)$(if $(BUILD_ARTIFACT_EXTENSION),.$(BUILD_ARTIFACT_EXTENSION),)
 
 # Add inputs and outputs from these tool invocations to the build variables 
 EXECUTABLES += \
-BlackPillFlash.elf \
+STMF411CE_Header_Drivers.elf \
 
 SIZE_OUTPUT += \
 default.size.stdout \
 
 OBJDUMP_LIST += \
-BlackPillFlash.list \
+STMF411CE_Header_Drivers.list \
 
 OBJCOPY_BIN += \
-BlackPillFlash.bin \
+STMF411CE_Header_Drivers.bin \
 
 
 # All Target
 all: main-build
 
 # Main-build Target
-main-build: BlackPillFlash.elf secondary-outputs
+main-build: STMF411CE_Header_Drivers.elf secondary-outputs
 
 # Tool invocations
-BlackPillFlash.elf: $(OBJS) $(USER_OBJS) D:\Embedded\STM32F411CEU6-Black-Pill-Projects\BlackPillFlash\STM32F411CEUX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "BlackPillFlash.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"D:\Embedded\STM32F411CEU6-Black-Pill-Projects\BlackPillFlash\STM32F411CEUX_FLASH.ld" --specs=nosys.specs -Wl,-Map="BlackPillFlash.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+STMF411CE_Header_Drivers.elf: $(OBJS) $(USER_OBJS) D:\Embedded\STM32F411CEU6-Black-Pill-Projects\STMF411CE_Header_Drivers\STM32F411CEUX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "STMF411CE_Header_Drivers.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"D:\Embedded\STM32F411CEU6-Black-Pill-Projects\STMF411CE_Header_Drivers\STM32F411CEUX_FLASH.ld" --specs=nosys.specs -Wl,-Map="STMF411CE_Header_Drivers.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
@@ -70,19 +71,19 @@ default.size.stdout: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
 	@echo 'Finished building: $@'
 	@echo ' '
 
-BlackPillFlash.list: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-objdump -h -S $(EXECUTABLES) > "BlackPillFlash.list"
+STMF411CE_Header_Drivers.list: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-objdump -h -S $(EXECUTABLES) > "STMF411CE_Header_Drivers.list"
 	@echo 'Finished building: $@'
 	@echo ' '
 
-BlackPillFlash.bin: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-objcopy  -O binary $(EXECUTABLES) "BlackPillFlash.bin"
+STMF411CE_Header_Drivers.bin: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-objcopy  -O binary $(EXECUTABLES) "STMF411CE_Header_Drivers.bin"
 	@echo 'Finished building: $@'
 	@echo ' '
 
 # Other Targets
 clean:
-	-$(RM) $(SIZE_OUTPUT)$(OBJDUMP_LIST)$(EXECUTABLES)$(OBJS)$(S_DEPS)$(S_UPPER_DEPS)$(C_DEPS)$(OBJCOPY_BIN) BlackPillFlash.elf
+	-$(RM) $(SIZE_OUTPUT)$(OBJDUMP_LIST)$(EXECUTABLES)$(OBJS)$(S_DEPS)$(S_UPPER_DEPS)$(C_DEPS)$(OBJCOPY_BIN) STMF411CE_Header_Drivers.elf
 	-@echo ' '
 
 secondary-outputs: $(SIZE_OUTPUT) $(OBJDUMP_LIST) $(OBJCOPY_BIN)
