@@ -10,8 +10,8 @@
 /**
  *
  */
-void SPI_PClockControl(SPI_Reg_Def_t *pSPIx, uint8_t EnorDI){
-	if(EnorDI == ENABLE){
+void SPI_PClockControl(SPI_Reg_Def_t *pSPIx, uint8_t EnOrDi){
+	if(EnOrDi == ENABLE){
 		if(pSPIx == SPI1){
 			SPI1_PCLK_EN();
 		}else if(pSPIx == SPI2){
@@ -38,6 +38,21 @@ void SPI_PClockControl(SPI_Reg_Def_t *pSPIx, uint8_t EnorDI){
 	}
 }
 
+void SPI_SSIControl(SPI_Reg_Def_t *pSPIx, uint8_t EnOrDi){
+	if(EnOrDi == ENABLE){
+		pSPIx->CR1 |= (1 << SPI_CR1_SSI);
+	}else{
+		pSPIx->CR1 &= ~(1 << SPI_CR1_SSI);
+	}
+}
+
+void SPI_SSOEControl(SPI_Reg_Def_t *pSPIx, uint8_t EnOrDi){
+	if(EnOrDi == ENABLE){
+		pSPIx->CR2 |= (1 << SPI_CR2_SSOE);
+	}else{
+		pSPIx->CR2 &= ~(1 << SPI_CR2_SSOE);
+	}
+}
 
 
 /**
@@ -98,7 +113,7 @@ void SPI_Send_Data(SPI_Reg_Def_t *pSPIx, uint8_t *pTxBuffer, uint32_t len){
 
 	while(len-- > 0){
 		// Wait For Transmit Buffer To Be Empty
-		while(pSPIx->SR | (1 << SPI_SR_TXE));
+		while((pSPIx->SR & (1 << SPI_SR_TXE)) == 0);
 
 		// If sending 16 bit else send 8 bit (DR is like a window into RX & TX buffer
 		// 		when reading from DR it will read from RX buffer when writing will

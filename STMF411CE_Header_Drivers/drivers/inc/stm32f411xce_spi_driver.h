@@ -97,5 +97,7 @@ void SPI_IRQPriorityConfig(uint8_t IRQNumber, uint32_t IRQPriority);
 void SPI_IRQHandling(SPI_Handler_t *pHandle);
 
 void SPI_PeripheralControl(SPI_Reg_Def_t *pSPIx, uint8_t EnOrDi);
+void SPI_SSIControl(SPI_Reg_Def_t *pSPIx, uint8_t EnOrDi);
+void SPI_SSOEControl(SPI_Reg_Def_t *pSPIx, uint8_t EnOrDi);
 
 #endif /* INC_STM32F411XCE_SPI_DRIVER_H_ */

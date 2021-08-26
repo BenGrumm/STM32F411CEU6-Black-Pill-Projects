@@ -44,17 +44,17 @@ void initSPIPins(void){
 	// SCK B10
 	GPIOB->MODER |= (1 << 21);
 	// NSS B9
-	// GPIOB->MODER |= (1 << 19);
+	GPIOB->MODER |= (1 << 19);
 
 	GPIOB->OSPEEDR |= (0x3 << 30);
 	// GPIOB->OSPEEDR |= (0x3 << 28);
 	GPIOB->OSPEEDR |= (0x3 << 20);
-	// GPIOB->OSPEEDR |= (0x3 << 18);
+	GPIOB->OSPEEDR |= (0x3 << 18);
 
 	GPIOB->AFRH |= (0x5 << 28);
 	// GPIOB->AFRH |= (0x5 << 24);
 	GPIOB->AFRH |= (0x5 << 8);
-	// GPIOB->AFRH |= (0x5 << 4);
+	GPIOB->AFRH |= (0x5 << 4);
 }
 
 void SPI2_init(void){
@@ -63,11 +63,11 @@ void SPI2_init(void){
 	SPI2handler.SPIx = SPI2;
 	SPI2handler.SPIConfig.SPI_BusConfig = SPI_BUS_CONFIG_FD;
 	SPI2handler.SPIConfig.SPI_DeviceMode = SPI_DEVICE_MODE_MASTER;
-	SPI2handler.SPIConfig.SPI_SclkSpeed = SPI_SCLK_SPEED_DIV2;
+	SPI2handler.SPIConfig.SPI_SclkSpeed = SPI_SCLK_SPEED_DIV8;
 	SPI2handler.SPIConfig.SPI_DFF = SPI_DFF_8BITS;
 	SPI2handler.SPIConfig.SPI_CPOL = SPI_CPOL_LOW;
 	SPI2handler.SPIConfig.SPI_CPHA = SPI_CPHA_LOW;
-	SPI2handler.SPIConfig.SPI_SSM = SPI_SSM_EN;
+	SPI2handler.SPIConfig.SPI_SSM = SPI_SSM_DI;
 
 	SPI_Init(&SPI2handler);
 }
@@ -79,9 +79,22 @@ int main(void)
 	initSPIPins();
 	SPI2_init();
 
+	// When using software slave management
+	// SPI_SSIControl(SPI2, ENABLE);
+
+	SPI_SSOEControl(SPI2, ENABLE);
+
 	SPI_PeripheralControl(SPI2, ENABLE);
 
+	// Send length of data
+	uint8_t datalength = strlen(user_data);
+	SPI_Send_Data(SPI2, &datalength, 1);
+
 	SPI_Send_Data(SPI2, (uint8_t*)user_data, strlen(user_data));
+
+	while((SPI2->SR |= (1 << SPI_SR_BSY)) == 0);
+
+	SPI_PeripheralControl(SPI2, DISABLE);
 
     /* Loop forever */
 	for(;;);
