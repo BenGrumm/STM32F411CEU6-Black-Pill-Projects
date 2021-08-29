@@ -30,7 +30,28 @@ typedef struct {
 typedef struct {
 	SPI_Reg_Def_t 	*SPIx;
 	SPI_Config_t	SPIConfig;
+	uint8_t			*pTxBuffer;
+	uint8_t			*pRxBuffer;
+	uint32_t		TxLen;
+	uint32_t		RxLen;
+	uint8_t			TxState;
+	uint8_t			RxState;
 } SPI_Handler_t;
+
+/*
+ * SPI Application States
+ */
+#define SPI_READY		0
+#define SPI_BUSY_IN_RX	1
+#define SPI_BUSY_IN_TX	2
+
+/*
+ * SPI Application Events
+ */
+#define SPI_EVENT_TX_CMPLT	1
+#define SPI_EVENT_RX_CMPLT	2
+#define SPI_EVENT_OVR_CMPLT	3
+#define SPI_EVENT_CRC_CMPLT	4
 
 /*
  * @SPI_DeviceMode	(Default Slave)
@@ -90,14 +111,26 @@ void SPI_Init(SPI_Handler_t *pSPIHandler);
 void SPI_DeInit(SPI_Reg_Def_t *pSPIx);
 
 void SPI_Send_Data(SPI_Reg_Def_t *pSPIx, uint8_t *pTxBuffer, uint32_t len);
-void SPI_Receive_Data(SPI_Reg_Def_t *pSPIx);
+void SPI_Receive_Data(SPI_Reg_Def_t *pSPIx, uint8_t *pTxBuffer, uint32_t len);
+
+uint8_t SPI_Send_Data_IT(SPI_Handler_t *pSPIHandler, uint8_t *pTxBuffer, uint32_t len);
+uint8_t SPI_Receive_Data_IT(SPI_Handler_t *pSPIHandler, uint8_t *pTxBuffer, uint32_t len);
 
 void SPI_IRQInterruptConfig(uint8_t IRQNumber, uint8_t EnOrDi);
 void SPI_IRQPriorityConfig(uint8_t IRQNumber, uint32_t IRQPriority);
-void SPI_IRQHandling(SPI_Handler_t *pHandle);
+void SPI_IRQHandling(SPI_Handler_t *pHandler);
 
 void SPI_PeripheralControl(SPI_Reg_Def_t *pSPIx, uint8_t EnOrDi);
 void SPI_SSIControl(SPI_Reg_Def_t *pSPIx, uint8_t EnOrDi);
 void SPI_SSOEControl(SPI_Reg_Def_t *pSPIx, uint8_t EnOrDi);
+
+void SPI_CLR_OVR_Flag(SPI_Reg_Def_t *pSPIx);
+void SPI_Close_Transmission(SPI_Handler_t *pHandler);
+void SPI_Close_Reception(SPI_Handler_t *pHandler);
+
+/**
+ * Application Callbacks
+ */
+void SPI_Even_Application_Callback(SPI_Handler_t *pHandler, uint8_t appEvent);
 
 #endif /* INC_STM32F411XCE_SPI_DRIVER_H_ */

@@ -17,15 +17,113 @@
  ******************************************************************************
  */
 
+void enableGPIOInterrupt(void);
+void initSPIPins(void);
+void SPI2_init(void);
+
 #include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 
 #include "stm32f411xce.h"
-#include "stm32f411xce_spi_driver.h"
 
 #if !defined(__SOFT_FP__) && defined(__ARM_FP)
   #warning "FPU is not initialized, but the project is compiling for an FPU. Please initialize the FPU before use."
 #endif
+
+#define MAX_LEN 500
+
+char RcvBuff[MAX_LEN];
+
+volatile char ReadByte;
+
+SPI_Handler_t SPI2handler;
+
+volatile uint8_t dataAvailable = 0;
+volatile uint8_t rcvStop = 0;
+
+int main(void)
+{
+	uint8_t dummy = 0xff;
+
+	enableGPIOInterrupt();
+	initSPIPins();
+	SPI2_init();
+
+	SPI_IRQInterruptConfig(36, ENABLE);
+
+	SPI_SSOEControl(SPI2, ENABLE);
+
+	while(1){
+		rcvStop = 0;
+
+		while(!dataAvailable);
+
+		// Disable GPIO Interrupt TODO
+
+		SPI_PeripheralControl(SPI2, ENABLE);
+
+		while(!rcvStop){
+			while(SPI_Send_Data_IT(&SPI2handler, &dummy, 1) == SPI_BUSY_IN_TX);
+			while(SPI_Receive_Data_IT(&SPI2handler, &ReadByte, 1) == SPI_BUSY_IN_RX);
+		}
+
+		while((SPI2->SR |= (1 << SPI_SR_BSY)) == 0);
+
+		SPI_PeripheralControl(SPI2, DISABLE);
+
+		printf("Rcvd data = %s\n", RcvBuff);
+
+		dataAvailable = 0;
+
+		// TODO Enable GPIO IRQ After Disable
+	}
+}
+
+void SPI_Even_Application_Callback(SPI_Handler_t *pHandler, uint8_t appEvent){
+	static uint32_t i = 0;
+
+	if(appEvent == SPI_EVENT_RX_CMPLT){
+		RcvBuff[i++] = ReadByte;
+
+		if(RcvBuff == '\0' || (i == MAX_LEN)){
+			rcvStop = 1;
+			RcvBuff[i - 1] = '\0';
+			i = 0;
+		}
+	}
+}
+
+void SPI2_IRQHandler(){
+	SPI_IRQHandling(&SPI2handler);
+}
+
+void EXTI0_IRQHandler(){
+	// TODO Deal with Interrupt
+	if(EXTI->PR & (1 << 0)){
+		dataAvailable = 1;
+
+		// Clr Pending Reg
+		EXTI->PR |= (1 << 0);
+
+		// Clear EXTI0 Pending In NVIC
+		*NVIC_ICPR0 |= (1 << 6);
+	}
+}
+
+void SPI2_init(void){
+
+	SPI2handler.SPIx = SPI2;
+	SPI2handler.SPIConfig.SPI_BusConfig = SPI_BUS_CONFIG_FD;
+	SPI2handler.SPIConfig.SPI_DeviceMode = SPI_DEVICE_MODE_MASTER;
+	SPI2handler.SPIConfig.SPI_SclkSpeed = SPI_SCLK_SPEED_DIV32;
+	SPI2handler.SPIConfig.SPI_DFF = SPI_DFF_8BITS;
+	SPI2handler.SPIConfig.SPI_CPOL = SPI_CPOL_LOW;
+	SPI2handler.SPIConfig.SPI_CPHA = SPI_CPHA_LOW;
+	SPI2handler.SPIConfig.SPI_SSM = SPI_SSM_DI;
+
+	SPI_Init(&SPI2handler);
+}
 
 /*
  * PB9 SPI2_NSS - AF05
@@ -40,62 +138,50 @@ void initSPIPins(void){
 	// MOSI B15
 	GPIOB->MODER |= (1 << 31);
 	// MISO B14
-	// GPIOB->MODER |= (1 << 29);
+	GPIOB->MODER |= (1 << 29);
 	// SCK B10
 	GPIOB->MODER |= (1 << 21);
 	// NSS B9
 	GPIOB->MODER |= (1 << 19);
 
 	GPIOB->OSPEEDR |= (0x3 << 30);
-	// GPIOB->OSPEEDR |= (0x3 << 28);
+	GPIOB->OSPEEDR |= (0x3 << 28);
 	GPIOB->OSPEEDR |= (0x3 << 20);
 	GPIOB->OSPEEDR |= (0x3 << 18);
 
 	GPIOB->AFRH |= (0x5 << 28);
-	// GPIOB->AFRH |= (0x5 << 24);
+	GPIOB->AFRH |= (0x5 << 24);
 	GPIOB->AFRH |= (0x5 << 8);
 	GPIOB->AFRH |= (0x5 << 4);
 }
 
-void SPI2_init(void){
-	SPI_Handler_t SPI2handler;
+// Setup GPIO And NVIC To Generate Interrupt On Falling Edge Of P0
+void enableGPIOInterrupt(void){
+	SYSCFG_PCLK_EN();
 
-	SPI2handler.SPIx = SPI2;
-	SPI2handler.SPIConfig.SPI_BusConfig = SPI_BUS_CONFIG_FD;
-	SPI2handler.SPIConfig.SPI_DeviceMode = SPI_DEVICE_MODE_MASTER;
-	SPI2handler.SPIConfig.SPI_SclkSpeed = SPI_SCLK_SPEED_DIV8;
-	SPI2handler.SPIConfig.SPI_DFF = SPI_DFF_8BITS;
-	SPI2handler.SPIConfig.SPI_CPOL = SPI_CPOL_LOW;
-	SPI2handler.SPIConfig.SPI_CPHA = SPI_CPHA_LOW;
-	SPI2handler.SPIConfig.SPI_SSM = SPI_SSM_DI;
+	// Using PA0 So Reset bit
+	SYSCFG->EXTICR1 &= ~(15 << 0);
 
-	SPI_Init(&SPI2handler);
+	// Setup A0 Pin
+	GPIOA_PCLK_EN();
+
+	// Reset Mode To Be Input
+	GPIOA->MODER &= ~(3 << 0);
+
+	// Set PUPD To Be None
+	GPIOA->PUPDR &= ~(3 << 0);
+
+	// Low Speed Default
+
+	// Setup EXTI
+	// Unmask EXTI0
+	EXTI->IMR |= (1 << 0);
+
+	// Set Falling Trigger only
+	EXTI->RTSR &= ~(1 << 0);
+	EXTI->FTSR |= (1 << 0);
+
+	// EXTI0 Interrupt Number 6
+	*NVIC_ISER0 |= (1 << 6);
 }
 
-int main(void)
-{
-	char user_data[] = "Hello World";
-
-	initSPIPins();
-	SPI2_init();
-
-	// When using software slave management
-	// SPI_SSIControl(SPI2, ENABLE);
-
-	SPI_SSOEControl(SPI2, ENABLE);
-
-	SPI_PeripheralControl(SPI2, ENABLE);
-
-	// Send length of data
-	uint8_t datalength = strlen(user_data);
-	SPI_Send_Data(SPI2, &datalength, 1);
-
-	SPI_Send_Data(SPI2, (uint8_t*)user_data, strlen(user_data));
-
-	while((SPI2->SR |= (1 << SPI_SR_BSY)) == 0);
-
-	SPI_PeripheralControl(SPI2, DISABLE);
-
-    /* Loop forever */
-	for(;;);
-}

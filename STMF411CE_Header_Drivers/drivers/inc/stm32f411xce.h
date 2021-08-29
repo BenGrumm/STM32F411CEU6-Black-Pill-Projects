@@ -9,11 +9,40 @@
 #define __INC_STM32F411XCE_HEADER
 
 #include <stdint.h>
+#include <stddef.h>
 
 /*
  * Volatile definition
  */
 #define __vo volatile
+#define __weak __attribute__((weak))
+
+/*
+ * M4 Specific
+ */
+
+/*
+ * Interrupt
+ */
+#define NVIC_CONTROLLER_BASEADDR 	(0xE000E000UL)
+
+#define NVIC_ISER0					((__vo uint32_t*)(NVIC_CONTROLLER_BASEADDR + 0x100UL + (0x04UL * 0)))
+#define NVIC_ISER1					((__vo uint32_t*)(NVIC_CONTROLLER_BASEADDR + 0x100UL + (0x04UL * 1)))
+#define NVIC_ISER2					((__vo uint32_t*)(NVIC_CONTROLLER_BASEADDR + 0x100UL + (0x04UL * 2)))
+
+#define NVIC_ICER0					((__vo uint32_t*)(NVIC_CONTROLLER_BASEADDR + 0x180UL + (0x04UL * 0)))
+#define NVIC_ICER1					((__vo uint32_t*)(NVIC_CONTROLLER_BASEADDR + 0x180UL + (0x04UL * 1)))
+#define NVIC_ICER2					((__vo uint32_t*)(NVIC_CONTROLLER_BASEADDR + 0x180UL + (0x04UL * 2)))
+
+#define NVIC_ISPR0					((__vo uint32_t*)(NVIC_CONTROLLER_BASEADDR + 0x200UL + (0x04UL * 0)))
+#define NVIC_ISPR1					((__vo uint32_t*)(NVIC_CONTROLLER_BASEADDR + 0x200UL + (0x04UL * 1)))
+#define NVIC_ISPR2					((__vo uint32_t*)(NVIC_CONTROLLER_BASEADDR + 0x200UL + (0x04UL * 2)))
+
+#define NVIC_ICPR0					((__vo uint32_t*)(NVIC_CONTROLLER_BASEADDR + 0x280UL + (0x04 * 0)))
+#define NVIC_ICPR1					((__vo uint32_t*)(NVIC_CONTROLLER_BASEADDR + 0x280UL + (0x04 * 1)))
+#define NVIC_ICPR2					((__vo uint32_t*)(NVIC_CONTROLLER_BASEADDR + 0x280UL + (0x04 * 2)))
+
+#define NVIC_IPRx(x)				((__vo uint32_t*)(NVIC_CONTROLLER_BASEADDR + 0x400UL + 0x04UL * x))
 
 /*
  * Base Addresses For Flash & SRAM
@@ -134,6 +163,26 @@ typedef struct {
 } RCC_Reg_Def_t;
 
 typedef struct {
+	__vo uint32_t IMR;												/* Interrupt mask register										*/
+	__vo uint32_t EMR;												/* Event mask register											*/
+	__vo uint32_t RTSR;												/* Rising trigger selection register							*/
+	__vo uint32_t FTSR;												/* Falling trigger selection register							*/
+	__vo uint32_t SWIER;											/* Software interrupt event register							*/
+	__vo uint32_t PR;												/* Pending register												*/
+}EXTI_Reg_Def_t;
+
+typedef struct {
+	__vo uint32_t MEMRMP;											/* SYSCFG memory remap register									*/
+	__vo uint32_t PMC;												/* SYSCFG peripheral mode configuration register				*/
+	__vo uint32_t EXTICR1;											/* SYSCFG external interrupt configuration register 1			*/
+	__vo uint32_t EXTICR2;											/* SYSCFG external interrupt configuration register 2			*/
+	__vo uint32_t EXTICR3;											/* SYSCFG external interrupt configuration register 3			*/
+	__vo uint32_t EXTICR4;											/* SYSCFG external interrupt configuration register 4			*/
+	uint32_t RESERVED[2];
+	__vo uint32_t CMPCR;											/* Compensation cell control register							*/
+} SYSCFG_Reg_Def_t;
+
+typedef struct {
 	__vo uint32_t CR1;												/* SPI control register 1 										*/
 	__vo uint32_t CR2;												/* SPI control register 2 										*/
 	__vo uint32_t SR;												/* SPI status register 											*/
@@ -158,6 +207,10 @@ typedef struct {
 #define GPIOH													((GPIO_Reg_Def_t*) GPIOH_BASEADDR)
 
 #define RCC														((RCC_Reg_Def_t*) RCC_BASEADDR)
+
+#define EXTI													((EXTI_Reg_Def_t*) EXTI_BASEADDR)
+
+#define SYSCFG													((SYSCFG_Reg_Def_t*) SYSCFG_BASEADDR)
 
 #define SPI1													((SPI_Reg_Def_t*) SPI1_BASEADDR)
 #define SPI2													((SPI_Reg_Def_t*) SPI2_BASEADDR)
@@ -256,6 +309,13 @@ typedef struct {
 #define USART6_PCLK_DI()										(RCC->APB2ENR &= ~(1 << 5))
 #define USART1_PCLK_DI()										(RCC->APB2ENR &= ~(1 << 4))
 #define TIM1_PCLK_DI()											(RCC->APB2ENR &= ~(1 << 0))
+
+// IRQ Numbers
+#define IRQ_NO_SPI1			35
+#define IRQ_NO_SPI2			36
+#define IRQ_NO_SPI3			51
+#define IRQ_NO_SPI4			84
+#define IRQ_NO_SPI5			85
 
 // Generic Macros
 #define ENABLE				1
