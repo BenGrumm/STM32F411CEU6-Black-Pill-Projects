@@ -351,8 +351,9 @@ void SPI_Close_Reception(SPI_Handler_t *pHandler){
 
 
 /*
- * Weak Implementation
+ * Weak Implementations
  */
+
 __weak void SPI_Even_Application_Callback(SPI_Handler_t *pHandler, uint8_t appEvent){
 	// Application may override this
 }
