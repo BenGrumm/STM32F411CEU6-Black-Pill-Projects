@@ -17,113 +17,16 @@
  ******************************************************************************
  */
 
-void enableGPIOInterrupt(void);
-void initSPIPins(void);
-void SPI2_init(void);
-
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 
 #include "stm32f411xce.h"
+#include "stm32f411xce_spi_driver.h"
+#include "stm32f411xce_nrf24L01_driver.h"
 
-#if !defined(__SOFT_FP__) && defined(__ARM_FP)
-  #warning "FPU is not initialized, but the project is compiling for an FPU. Please initialize the FPU before use."
-#endif
-
-#define MAX_LEN 500
-
-char RcvBuff[MAX_LEN];
-
-volatile char ReadByte;
-
-SPI_Handler_t SPI2handler;
-
-volatile uint8_t dataAvailable = 0;
-volatile uint8_t rcvStop = 0;
-
-int main(void)
-{
-	uint8_t dummy = 0xff;
-
-	enableGPIOInterrupt();
-	initSPIPins();
-	SPI2_init();
-
-	SPI_IRQInterruptConfig(36, ENABLE);
-
-	SPI_SSOEControl(SPI2, ENABLE);
-
-	while(1){
-		rcvStop = 0;
-
-		while(!dataAvailable);
-
-		// Disable GPIO Interrupt TODO
-
-		SPI_PeripheralControl(SPI2, ENABLE);
-
-		while(!rcvStop){
-			while(SPI_Send_Data_IT(&SPI2handler, &dummy, 1) == SPI_BUSY_IN_TX);
-			while(SPI_Receive_Data_IT(&SPI2handler, &ReadByte, 1) == SPI_BUSY_IN_RX);
-		}
-
-		while((SPI2->SR |= (1 << SPI_SR_BSY)) == 0);
-
-		SPI_PeripheralControl(SPI2, DISABLE);
-
-		printf("Rcvd data = %s\n", RcvBuff);
-
-		dataAvailable = 0;
-
-		// TODO Enable GPIO IRQ After Disable
-	}
-}
-
-void SPI_Even_Application_Callback(SPI_Handler_t *pHandler, uint8_t appEvent){
-	static uint32_t i = 0;
-
-	if(appEvent == SPI_EVENT_RX_CMPLT){
-		RcvBuff[i++] = ReadByte;
-
-		if(RcvBuff == '\0' || (i == MAX_LEN)){
-			rcvStop = 1;
-			RcvBuff[i - 1] = '\0';
-			i = 0;
-		}
-	}
-}
-
-void SPI2_IRQHandler(){
-	SPI_IRQHandling(&SPI2handler);
-}
-
-void EXTI0_IRQHandler(){
-	// TODO Deal with Interrupt
-	if(EXTI->PR & (1 << 0)){
-		dataAvailable = 1;
-
-		// Clr Pending Reg
-		EXTI->PR |= (1 << 0);
-
-		// Clear EXTI0 Pending In NVIC
-		*NVIC_ICPR0 |= (1 << 6);
-	}
-}
-
-void SPI2_init(void){
-
-	SPI2handler.SPIx = SPI2;
-	SPI2handler.SPIConfig.SPI_BusConfig = SPI_BUS_CONFIG_FD;
-	SPI2handler.SPIConfig.SPI_DeviceMode = SPI_DEVICE_MODE_MASTER;
-	SPI2handler.SPIConfig.SPI_SclkSpeed = SPI_SCLK_SPEED_DIV32;
-	SPI2handler.SPIConfig.SPI_DFF = SPI_DFF_8BITS;
-	SPI2handler.SPIConfig.SPI_CPOL = SPI_CPOL_LOW;
-	SPI2handler.SPIConfig.SPI_CPHA = SPI_CPHA_LOW;
-	SPI2handler.SPIConfig.SPI_SSM = SPI_SSM_DI;
-
-	SPI_Init(&SPI2handler);
-}
+//#define ISRX
+#define ISTX
 
 /*
  * PB9 SPI2_NSS - AF05
@@ -131,6 +34,9 @@ void SPI2_init(void){
  * PB14 SPI2_MISO - AF05
  * PB15 SPI2_MOSI - AF05
  */
+
+uint8_t flag;
+SPI_Handler_t SPI2handler;
 
 void initSPIPins(void){
 	GPIOB_PCLK_EN();
@@ -153,6 +59,38 @@ void initSPIPins(void){
 	GPIOB->AFRH |= (0x5 << 24);
 	GPIOB->AFRH |= (0x5 << 8);
 	GPIOB->AFRH |= (0x5 << 4);
+}
+
+void initNRFPins(void){
+	// CE Pin on B4
+	GPIOB_PCLK_EN();
+
+	GPIOB->MODER |= (1 << 8);	// General Output
+	GPIOB->OSPEEDR |= (1 << 9); // Fast Speed
+	GPIOB->PUPDR &= ~(0x3 << 8); // Disable PUPD
+	GPIOB->BSRR |= (1 << 20); // Reset pin
+}
+
+void CE_Low(void){
+	GPIOB->BSRR |= (1 << 20);
+}
+
+void CE_High(void){
+	GPIOB->BSRR |= (1 << 4);
+}
+
+void SPI2_init(void){
+
+	SPI2handler.SPIx = SPI2;
+	SPI2handler.SPIConfig.SPI_BusConfig = SPI_BUS_CONFIG_FD;
+	SPI2handler.SPIConfig.SPI_DeviceMode = SPI_DEVICE_MODE_MASTER;
+	SPI2handler.SPIConfig.SPI_SclkSpeed = SPI_SCLK_SPEED_DIV8;
+	SPI2handler.SPIConfig.SPI_DFF = SPI_DFF_8BITS;
+	SPI2handler.SPIConfig.SPI_CPOL = SPI_CPOL_LOW;
+	SPI2handler.SPIConfig.SPI_CPHA = SPI_CPHA_LOW;
+	SPI2handler.SPIConfig.SPI_SSM = SPI_SSM_DI;
+
+	SPI_Init(&SPI2handler);
 }
 
 // Setup GPIO And NVIC To Generate Interrupt On Falling Edge Of P0
@@ -185,3 +123,137 @@ void enableGPIOInterrupt(void){
 	*NVIC_ISER0 |= (1 << 6);
 }
 
+void EXTI0_IRQHandler(){
+	// TODO Deal with Interrupt
+	if(EXTI->PR & (1 << 0)){
+
+		flag = 0x55;
+
+		// Clr Pending Reg
+		EXTI->PR |= (1 << 0);
+
+		// Clear EXTI0 Pending In NVIC
+		*NVIC_ICPR0 |= (1 << 6);
+	}
+}
+
+void msTimSetup(){
+	TIM5_PCLK_EN();
+
+	// HSI = 16 MHz For 1000Hz (T = 1ms) 16Mhz / 16000
+	TIM5->PSC = 16000;
+	// ARR Max
+	TIM5->ARR = 0xFFFF;
+
+	// Enable
+	TIM5->CR1 |= (1 << 0);
+}
+
+void delayMs(uint32_t ms){
+	// Reset Counter
+	TIM5->CNT = 0;
+
+	while(TIM5->CNT < ms);
+}
+
+int main(){
+	char user_data[32] = "Benjamin";
+	char rx_data_buff[32];
+
+	msTimSetup();
+	initSPIPins();
+	SPI2_init();
+
+	// When using software slave management
+	// SPI_SSIControl(SPI2, ENABLE);
+
+	delayMs(200);
+
+	SPI_SSOEControl(SPI2, ENABLE);
+
+	NRF24L01_Config_t cfg;
+
+	cfg.spiHandler = &SPI2handler;
+
+	// General
+	cfg.addressWidth = BYTES_5;
+	cfg.crcEncodingScheme = 0;
+	cfg.enableAutoAck = 1;
+	cfg.crcEncoding = 1;
+	cfg.rfChannel = 0x7B;
+	cfg.enableDynamicPlWidth = 1;
+
+	cfg.NRF_CE_HIGH = CE_High;
+	cfg.NRF_CE_LOW = CE_Low;
+	cfg.delayMs = delayMs;
+
+	NRF_init(&cfg);
+
+#ifdef ISRX
+	// RX
+	cfg.enableRXDRIRQ = 1;
+	cfg.isReceiver = 1;
+	cfg.rxPipe = PIPE_5;
+	cfg.rxAddrLow = 0x28;
+	cfg.rxAddrHigh = 0xAABBCCDD;
+	cfg.payloadWidth = 2;
+#endif
+
+#ifdef ISTX
+	// TX
+	cfg.isReceiver = 0;
+	cfg.enableTXDSIRQ = 1;
+	cfg.enableMaxRtIRQ = 1;
+	cfg.txAddrLow = 0x28;
+	cfg.txAddrHigh = 0xAABBCCDD;
+#endif
+
+	// while((SPI2->SR |= (1 << SPI_SR_BSY)) == 0);
+
+#ifdef ISRX
+	NRF_set_rx(&SPI2handler, 1);
+	NRF_listen();
+#endif
+
+#ifdef ISTX
+	NRF_set_rx(&SPI2handler, 0);
+	NRF_write_tx_payload(&SPI2handler, (uint8_t*)&user_data, strlen(user_data));
+	uint8_t counter = 0x00;
+#endif
+    /* Loop forever */
+	for(;;){
+
+#ifdef ISRX
+		if(flag == 0x55){
+			flag = 0x00;
+			NRF_clear_interrupts(&SPI2handler);
+
+			uint8_t len = NRF_ready_dynamic_pl_width(&SPI2handler);
+
+			if(len < 33){
+				NRF_read_rx_payload(&SPI2handler, (uint8_t*)&rx_data_buff, len);
+				NRF_FLUSH_RX(&SPI2handler);
+			}else{
+				NRF_FLUSH_RX(&SPI2handler);
+			}
+
+			NRF_listen();
+		}
+#endif
+
+#ifdef ISTX
+		if(flag == 0x55){
+			flag = 0x00;
+			NRF_clear_interrupts(&SPI2handler);
+
+			sprintf(user_data, "Benjamin %d", counter++);
+
+			NRF_write_tx_payload(&SPI2handler, (uint8_t*)&user_data, strlen(user_data));
+
+			delayMs(200);
+		}
+#endif
+
+
+	}
+}

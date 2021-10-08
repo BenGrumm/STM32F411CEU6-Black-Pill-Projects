@@ -183,6 +183,30 @@ typedef struct {
 } SYSCFG_Reg_Def_t;
 
 typedef struct {
+	__vo uint32_t CR1;												/* TIMx control register 1										*/
+	__vo uint32_t CR2;												/* TIMx control register 2										*/
+	__vo uint32_t SMCR;												/* TIMx slave mode control register								*/
+	__vo uint32_t DIER;												/* TIMx DMA/Interrupt enable register							*/
+	__vo uint32_t SR;												/* TIMx status register											*/
+	__vo uint32_t EGR;												/* TIMx event generation register								*/
+	__vo uint32_t CCMR1;											/* TIMx capture/compare mode register 1							*/
+	__vo uint32_t CCMR2;											/* TIMx capture/compare mode register 2							*/
+	__vo uint32_t CCER;												/* TIMx capture/compare enable register							*/
+	__vo uint32_t CNT;												/* TIMx counter													*/
+	__vo uint32_t PSC;												/* TIMx prescaler												*/
+	__vo uint32_t ARR;												/* TIMx auto-reload register									*/
+	uint32_t RESERVED;
+	__vo uint32_t CCR1;												/* TIMx capture/compare register 1								*/
+	__vo uint32_t CCR2;												/* TIMx capture/compare register 2								*/
+	__vo uint32_t CCR3;												/* TIMx capture/compare register 3								*/
+	__vo uint32_t CCR4;												/* TIMx capture/compare register 4								*/
+	uint32_t RESERVED2;
+	__vo uint32_t DCR;												/* TIMx DMA control register									*/
+	__vo uint32_t DMAR;												/* TIMx DMA address for full transfer							*/
+	__vo uint32_t OR;												/* TIM2 / TIM5 option register									*/
+} TIM2_5_Reg_Def_t;
+
+typedef struct {
 	__vo uint32_t CR1;												/* SPI control register 1 										*/
 	__vo uint32_t CR2;												/* SPI control register 2 										*/
 	__vo uint32_t SR;												/* SPI status register 											*/
@@ -211,6 +235,11 @@ typedef struct {
 #define EXTI													((EXTI_Reg_Def_t*) EXTI_BASEADDR)
 
 #define SYSCFG													((SYSCFG_Reg_Def_t*) SYSCFG_BASEADDR)
+
+#define TIM2													((TIM2_5_Reg_Def_t*) TIM2_BASEADDR)
+#define TIM3													((TIM2_5_Reg_Def_t*) TIM3_BASEADDR)
+#define TIM4													((TIM2_5_Reg_Def_t*) TIM4_BASEADDR)
+#define TIM5													((TIM2_5_Reg_Def_t*) TIM5_BASEADDR)
 
 #define SPI1													((SPI_Reg_Def_t*) SPI1_BASEADDR)
 #define SPI2													((SPI_Reg_Def_t*) SPI2_BASEADDR)
@@ -323,7 +352,7 @@ typedef struct {
 #define SET					ENABLE
 #define RESET				DISABLE
 #define GPIO_PIN_SET		SET
-#define GPIO_PIN_RESET
+#define GPIO_PIN_RESET		RESET
 
 /**
  * Bit Position Definitions For SPI

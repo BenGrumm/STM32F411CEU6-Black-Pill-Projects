@@ -38,8 +38,6 @@ uint8_t sendCommandForACK(uint8_t command);
  * PB15 SPI2_MOSI - AF05
  */
 
-/*
-
 void initSPIPins(void){
 	GPIOB_PCLK_EN();
 
@@ -128,7 +126,7 @@ void sendAndRecieveCommands(void){
 
 	SPI_PeripheralControl(SPI2, DISABLE);
 
-    /* Loop forever
+    /* Loop forever */
 	for(;;);
 }
 
@@ -174,8 +172,7 @@ void sendHelloWorld(void){
 
 	SPI_PeripheralControl(SPI2, DISABLE);
 
-    /* Loop forever
+    /* Loop forever */
 	for(;;);
 }
 
-*/

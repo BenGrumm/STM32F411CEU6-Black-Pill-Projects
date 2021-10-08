@@ -5,12 +5,15 @@
 
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS += \
+../drivers/src/stm32f411xce_nrf24L01_driver.c \
 ../drivers/src/stm32f411xce_spi_driver.c 
 
 OBJS += \
+./drivers/src/stm32f411xce_nrf24L01_driver.o \
 ./drivers/src/stm32f411xce_spi_driver.o 
 
 C_DEPS += \
+./drivers/src/stm32f411xce_nrf24L01_driver.d \
 ./drivers/src/stm32f411xce_spi_driver.d 
 
 
