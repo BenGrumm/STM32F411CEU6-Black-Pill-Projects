@@ -283,7 +283,7 @@ static void SPI_Txe_It_Handle(SPI_Handler_t *pHandler){
 
 	if(pHandler->TxLen <= 0){
 		SPI_Close_Transmission(pHandler);
-		SPI_Even_Application_Callback(pHandler, SPI_EVENT_TX_CMPLT);
+		SPI_Event_Application_Callback(pHandler, SPI_EVENT_TX_CMPLT);
 	}
 }
 
@@ -307,7 +307,7 @@ static void SPI_Rxne_It_Handle(SPI_Handler_t *pHandler){
 	if(pHandler->RxLen <= 0){
 		SPI_Close_Reception(pHandler);
 
-		SPI_Even_Application_Callback(pHandler, SPI_EVENT_RX_CMPLT);
+		SPI_Event_Application_Callback(pHandler, SPI_EVENT_RX_CMPLT);
 	}
 }
 
@@ -319,7 +319,7 @@ static void SPI_OVR_It_Handle(SPI_Handler_t *pHandler){
 	}
 
 	// Inform Application
-	SPI_Even_Application_Callback(pHandler, SPI_EVENT_OVR_CMPLT);
+	SPI_Event_Application_Callback(pHandler, SPI_EVENT_OVR_CMPLT);
 }
 
 void SPI_CLR_OVR_Flag(SPI_Reg_Def_t *pSPIx){
@@ -354,7 +354,7 @@ void SPI_Close_Reception(SPI_Handler_t *pHandler){
  * Weak Implementations
  */
 
-__weak void SPI_Even_Application_Callback(SPI_Handler_t *pHandler, uint8_t appEvent){
+__weak void SPI_Event_Application_Callback(SPI_Handler_t *pHandler, uint8_t appEvent){
 	// Application may override this
 }
 

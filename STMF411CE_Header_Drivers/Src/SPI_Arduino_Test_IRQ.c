@@ -81,7 +81,7 @@ int main(void)
 	}
 }
 
-void SPI_Even_Application_Callback(SPI_Handler_t *pHandler, uint8_t appEvent){
+void SPI_Event_Application_Callback(SPI_Handler_t *pHandler, uint8_t appEvent){
 	static uint32_t i = 0;
 
 	if(appEvent == SPI_EVENT_RX_CMPLT){

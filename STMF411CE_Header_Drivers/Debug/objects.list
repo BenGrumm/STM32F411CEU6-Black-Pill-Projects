@@ -2,5 +2,6 @@
 "./Src/syscalls.o"
 "./Src/sysmem.o"
 "./Startup/startup_stm32f411ceux.o"
+"./drivers/src/stm32f411xce_i2c_driver.o"
 "./drivers/src/stm32f411xce_nrf24L01_driver.o"
 "./drivers/src/stm32f411xce_spi_driver.o"

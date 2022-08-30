@@ -24,7 +24,11 @@
 /*
  * Interrupt
  */
+
+#define NO_PR_BITS_IMPLEMENTED 		8 // Number of bits used for the priority registers
+
 #define NVIC_CONTROLLER_BASEADDR 	(0xE000E000UL)
+#define NVIC_PR_BASE_ADDR 			(NVIC_CONTROLLER_BASEADDR + 0x280UL)
 
 #define NVIC_ISER0					((__vo uint32_t*)(NVIC_CONTROLLER_BASEADDR + 0x100UL + (0x04UL * 0)))
 #define NVIC_ISER1					((__vo uint32_t*)(NVIC_CONTROLLER_BASEADDR + 0x100UL + (0x04UL * 1)))
@@ -42,7 +46,7 @@
 #define NVIC_ICPR1					((__vo uint32_t*)(NVIC_CONTROLLER_BASEADDR + 0x280UL + (0x04 * 1)))
 #define NVIC_ICPR2					((__vo uint32_t*)(NVIC_CONTROLLER_BASEADDR + 0x280UL + (0x04 * 2)))
 
-#define NVIC_IPRx(x)				((__vo uint32_t*)(NVIC_CONTROLLER_BASEADDR + 0x400UL + 0x04UL * x))
+#define NVIC_IPRx(x)				((__vo uint32_t*)(NVIC_CONTROLLER_BASEADDR + 0x400UL + 0x04UL * (x)))
 
 /*
  * Base Addresses For Flash & SRAM
@@ -218,6 +222,19 @@ typedef struct {
 	__vo uint32_t I2SPR;											/* SPI_I2S prescaler register 									*/
 } SPI_Reg_Def_t;
 
+typedef struct {
+	__vo uint32_t CR1;												/* I2C Control register 1										*/
+	__vo uint32_t CR2;												/* I2C Control register 2										*/
+	__vo uint32_t OAR1;												/* I2C Own address register 1									*/
+	__vo uint32_t OAR2;												/* I2C Own address register 2									*/
+	__vo uint32_t DR;												/* I2C Data register											*/
+	__vo uint32_t SR1;												/* I2C Status register 1										*/
+	__vo uint32_t SR2;												/* I2C Status register 2										*/
+	__vo uint32_t CCR;												/* I2C Clock control register									*/
+	__vo uint32_t TRISE;											/* I2C TRISE register											*/
+	__vo uint32_t FLTR;												/* I2C FLTR register											*/
+} I2C_Reg_Def_t;
+
 
 /*
  * Peripheral Definitions Type Casted As Reg From Reg Definitions
@@ -246,6 +263,10 @@ typedef struct {
 #define SPI3													((SPI_Reg_Def_t*) SPI3_BASEADDR)
 #define SPI4													((SPI_Reg_Def_t*) SPI4_BASEADDR)
 #define SPI5													((SPI_Reg_Def_t*) SPI5_BASEADDR)
+
+#define I2C1													((I2C_Reg_Def_t*) I2C1_BASEADDR)
+#define I2C2													((I2C_Reg_Def_t*) I2C2_BASEADDR)
+#define I2C3													((I2C_Reg_Def_t*) I2C3_BASEADDR)
 
 /*
  * Macros For Enabling And Disabling Clocks
@@ -351,8 +372,32 @@ typedef struct {
 #define DISABLE				0
 #define SET					ENABLE
 #define RESET				DISABLE
+#define FLAG_SET			SET
+#define FLAG_RESET			RESET
 #define GPIO_PIN_SET		SET
 #define GPIO_PIN_RESET		RESET
+
+/**
+ * Bit Position Definitions For RCC
+ */
+
+#define RCC_PLLCFGR_PLLQ	24
+#define RCC_PLLCFGR_PLLSRC	22
+#define RCC_PLLCFGR_PLLP	16
+#define RCC_PLLCFGR_PLLN	6
+#define RCC_PLLCFGR_PLLM	0
+
+#define RCC_CFGR_MCO2		30
+#define RCC_CFGR_MCO2PRE	27
+#define RCC_CFGR_MCO1PRE	24
+#define RCC_CFGR_I2SSRC		23
+#define RCC_CFGR_MCO1		21
+#define RCC_CFGR_RTCPRE		16
+#define RCC_CFGR_PPRE2		13
+#define RCC_CFGR_PPRE1		10
+#define RCC_CFGR_HPRE		4
+#define RCC_CFGR_SWS		2
+#define RCC_CFGR_SW			0
 
 /**
  * Bit Position Definitions For SPI
@@ -390,6 +435,60 @@ typedef struct {
 #define SPI_SR_TXE			1
 #define SPI_SR_RXNE			0
 
+/**
+ * Bit Positions For I2C Registers
+ */
+#define I2C_CR1_SWRST		15
+#define I2C_CR1_ALERT		13
+#define I2C_CR1_PEC			12
+#define I2C_CR1_POS			11
+#define I2C_CR1_ACK			10
+#define I2C_CR1_STOP		9
+#define I2C_CR1_START		8
+#define I2C_CR1_NOSTRETCH	7
+#define I2C_CR1_ENGC		6
+#define I2C_CR1_ENPEC		5
+#define I2C_CR1_ENARP		4
+#define I2C_CR1_SMBTYPE		3
+#define I2C_CR1_SMBUS		1
+#define I2C_CR1_PE			0
+
+#define I2C_CR2_LAST		12
+#define I2C_CR2_DMAEN		11
+#define I2C_CR2_ITBUFEN		10
+#define I2C_CR2_ITEVTEN		9
+#define I2C_CR2_ITERREN		8
+#define I2C_CR2_FREQ		0
+
+#define I2C_SR1_SMBALERT	15
+#define I2C_SR1_TIMEOUT		14
+#define I2C_SR1_PECERR		12
+#define I2C_SR1_OVR			11
+#define I2C_SR1_AF			10
+#define I2C_SR1_ARLO		9
+#define I2C_SR1_BERR		8
+#define I2C_SR1_TxE			7
+#define I2C_SR1_RxNE		6
+#define I2C_SR1_STOPF		4
+#define I2C_SR1_ADD10		3
+#define I2C_SR1_BTF			2
+#define I2C_SR1_ADDR		1
+#define I2C_SR1_SB			0
+
+#define I2C_SR2_PEC			8
+#define I2C_SR2_DUALF		7
+#define I2C_SR2_SMBHOST		6
+#define I2C_SR2_SMBDEFAULT	5
+#define I2C_SR2_GENCALL		4
+#define I2C_SR2_TRA			2
+#define I2C_SR2_BUSY		1
+#define I2C_SR2_MSL			0
+
+#define I2C_CCR_FS			15
+#define I2C_CCR_DUTY		14
+#define I2C_CCR_CCR			0
+
 #include "stm32f411xce_spi_driver.h"
+#include "stm32f411xce_i2c_driver.h"
 
 #endif

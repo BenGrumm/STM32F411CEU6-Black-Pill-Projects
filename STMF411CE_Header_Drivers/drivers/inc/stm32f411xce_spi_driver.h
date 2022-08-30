@@ -131,6 +131,6 @@ void SPI_Close_Reception(SPI_Handler_t *pHandler);
 /**
  * Application Callbacks
  */
-void SPI_Even_Application_Callback(SPI_Handler_t *pHandler, uint8_t appEvent);
+void SPI_Event_Application_Callback(SPI_Handler_t *pHandler, uint8_t appEvent);
 
 #endif /* INC_STM32F411XCE_SPI_DRIVER_H_ */

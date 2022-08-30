@@ -1,0 +1,7 @@
+{
+    "makefile.extensionOutputFolder": "./.vscode",
+    "files.associations": {
+        "stm32f411xce_i2c_driver.h": "c",
+        "stm32f411xce.h": "c"
+    }
+}
