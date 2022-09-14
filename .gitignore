@@ -121,3 +121,7 @@ local.properties
 .sts4-cache/
 
 # End of https://www.toptal.com/developers/gitignore/api/eclipse
+*/.vscode/targets.log
+*/.vscode/configurationCache.log
+*/.vscode/dryrun.log
+MPU-6050-IMU/.vscode/configurationCache.log
