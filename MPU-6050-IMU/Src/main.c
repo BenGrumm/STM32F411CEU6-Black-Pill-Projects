@@ -32,7 +32,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define MPU_ADDR      (0x68 << 1)
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -44,14 +44,6 @@
 I2C_HandleTypeDef hi2c1;
 
 /* USER CODE BEGIN PV */
-uint32_t lastGyroReadingTime = 0;
-
-int16_t accelX = 0;
-int16_t accelY = 0;
-int16_t accelZ = 0;
-int16_t gyroX = 0;
-int16_t gyroY = 0;
-int16_t gyroZ = 0;
 
 /* USER CODE END PV */
 
@@ -61,90 +53,10 @@ static void MX_GPIO_Init(void);
 static void MX_I2C1_Init(void);
 /* USER CODE BEGIN PFP */
 
-void readGryoValues(void);
-void readAccelValues(void);
-void setupMPU(void);
-int16_t get16BitValueFrom8BitRegs(uint8_t reg1Addr);
-int16_t test16BitDoubleRead(uint8_t reg1Addr);
-void readAndStoreRegisters(uint8_t initAddr, uint8_t numRegs, int16_t* data);
-
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
-void setupMPU(void){
-  // MPU-6050 addr = 0x68
-  uint8_t tempReg = 0;
-
-  // Initial reading at start
-  lastGyroReadingTime = HAL_GetTick();
-
-  // Configure power settings
-  tempReg = 0;
-  HAL_I2C_Mem_Write(&hi2c1, MPU_ADDR, 0x6B, 1, &tempReg, 1, 100);
-
-  // Configure gyro FS_SEL for scale range
-  tempReg = 0x10;
-  HAL_I2C_Mem_Write(&hi2c1, MPU_ADDR, 0x1B, 1, &tempReg, 1, 100);
-
-  // Configure Accell settings
-  tempReg = 0;
-  HAL_I2C_Mem_Write(&hi2c1, MPU_ADDR, 0x1B, 1, &tempReg, 1, 100);
-}
-
-void readAccelValues(void){
-
-}
-
-void readGryoValues(void){
-  // Read GyroVals
-  int16_t addresses[3];
-  readAndStoreRegisters(0x43, 6, addresses);
-  gyroX = addresses[0];
-  gyroY = addresses[1];
-  gyroZ = addresses[2];
-}
-
-int16_t get16BitValueFrom8BitRegs(uint8_t reg1Addr){
-  uint8_t tempValues[2]; 
-  int16_t combinedVal = 0;
-
-  HAL_I2C_Mem_Read(&hi2c1, MPU_ADDR, reg1Addr, 1, tempValues, 1, 100);
-  HAL_I2C_Mem_Read(&hi2c1, MPU_ADDR, (reg1Addr + 1), 1, (tempValues + 1), 1, 100);
-
-  combinedVal = tempValues[0] << 8;
-  combinedVal |= tempValues[1];
-  
-  return combinedVal;
-}
-
-/**
- * @brief Will read registers that are 8 bits in size but store 16 bit signed 
- * integers
- * 
- * @param initAddr address of the initial register to read
- * @param numRegs number of regs to read in the sequence (must be multiple of 2)
- * @param data location where the data will be stored (len = numRegs / 2)
- */
-void readAndStoreRegisters(uint8_t initAddr, uint8_t numRegs, int16_t* data){
-  if(numRegs == 0 || numRegs % 2 != 0){
-    return;
-  }
-
-  uint8_t tempValues[numRegs];
-  int16_t combinedVal = 0;
-
-  HAL_I2C_Mem_Read(&hi2c1, MPU_ADDR, initAddr, 1, tempValues, numRegs, 100);
-
-  // combine the 8 bit values into signed 16 bit and store in given location 
-  for(int i = 0; i < numRegs; i+=2){
-    combinedVal = tempValues[i] << 8;
-    combinedVal |= tempValues[i+1];
-
-    data[i/2] = combinedVal;
-  }
-}
 
 /* USER CODE END 0 */
 
@@ -179,32 +91,32 @@ int main(void)
   MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
 
-  setupMPU();
+  MPU6050 mpu;
+
+  mpu.MPU_Accel_Range = MPU_ACCEL_SCALE_RANGE_8G;
+  mpu.MPU_Gyro_Range = MPU_GYRO_SCALE_RANGE_500;
+
+  setupMPU6050(&mpu, &hi2c1);
+
+  HAL_StatusTypeDef error;
 
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+
+  int lastFlash = HAL_GetTick();
+
   while (1)
   {
-    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+    if(HAL_GetTick() - lastFlash > 1000){
+      HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+      lastFlash = HAL_GetTick();
+    }
 
-    HAL_GetTick();
+    error = MPU6050_readMPUAndCalculatePosition(&mpu);
 
-    HAL_Delay(2000);
-
-    //https://forum.arduino.cc/t/i2c-protocol-tutorial-using-an-mpu6050/387512
-    // https://howtomechatronics.com/tutorials/arduino/arduino-and-mpu6050-accelerometer-and-gyroscope-tutorial/
-
-    // https://invensense.tdk.com/wp-content/uploads/2015/02/MPU-6000-Register-Map1.pdf
-    // P29 For Accel Regs
-    // P31 For Gryo Regs
-    // P40 For PWR_MNGMT regs
-
-    readAccelValues();
-    readGryoValues();
-    // HAL_I2C_Master_Transmit();
-    // HAL_I2C_Master_Receive();
+    HAL_Delay(50);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */

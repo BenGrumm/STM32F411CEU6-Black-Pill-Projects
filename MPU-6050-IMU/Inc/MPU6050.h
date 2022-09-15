@@ -7,11 +7,21 @@
  * 
  * @copyright Copyright (c) 2022
  * 
+ * https://forum.arduino.cc/t/i2c-protocol-tutorial-using-an-mpu6050/387512
+ * https://howtomechatronics.com/tutorials/arduino/arduino-and-mpu6050-accelerometer-and-gyroscope-tutorial/
+ * https://www.nxp.com/files-static/sensors/doc/app_note/AN3461.pdf
+ *
+ * https://invensense.tdk.com/wp-content/uploads/2015/02/MPU-6000-Register-Map1.pdf
+ * P29 For Accel Regs
+ * P31 For Gryo Regs
+ * P40 For PWR_MNGMT regs
+ * 
  */
 #ifndef MPU6050_I2C_DRIVER_H
 #define MPU6050_I2C_DRIVER_H
 
 #include "stm32f4xx_hal.h"
+#include <math.h>
 
 /**
  * Defines
@@ -57,10 +67,10 @@
 /**
  * Accelerometer LSB Sensitivity
  */
-#define MPU_ACCEL_SENSITIVITY_2G    16384
-#define MPU_ACCEL_SENSITIVITY_4G    8192
-#define MPU_ACCEL_SENSITIVITY_8G    4096
-#define MPU_ACCEL_SENSITIVITY_16G   2048
+#define MPU_ACCEL_SENSITIVITY_2G    16384.0
+#define MPU_ACCEL_SENSITIVITY_4G    8192.0
+#define MPU_ACCEL_SENSITIVITY_8G    4096.0
+#define MPU_ACCEL_SENSITIVITY_16G   2048.0
 
 /**
  * Gyro Full Scale Range
@@ -73,7 +83,7 @@
 /**
  * Gyro LSB Sensitivity
  */
-#define MPU_GYRO_SENSITIVITY_250    131
+#define MPU_GYRO_SENSITIVITY_250    131.0
 #define MPU_GYRO_SENSITIVITY_500    65.5
 #define MPU_GYRO_SENSITIVITY_1000   32.8
 #define MPU_GYRO_SENSITIVITY_2000   16.4
@@ -84,9 +94,13 @@
 typedef struct {
     I2C_HandleTypeDef* i2c_handler;
 
-    int16_t gyroValues[3]; // X, Y, Z
+    uint8_t MPU_Gyro_Range; // One of MPU_GYRO_SCALE_RANGE_250 - MPU_GYRO_SCALE_RANGE_2000
+    uint8_t MPU_Accel_Range; //  One of MPU_ACCEL_SCALE_RANGE_2G - MPU_ACCEL_SCALE_RANGE_16G
 
-    int16_t accelValues[3]; // X, Y, Z
+    float gyro_angle[3]; // X, Y, Z
+    float accel_angle[3]; // X, Y, Z
+
+    float position[3]; // Combined gyro and accel angles, X, Y, Z - Roll, Pitch, Yaw
 
     uint32_t lastGyroReadingTime; // stores time to calculate gyro movement
 }MPU6050;
@@ -98,8 +112,10 @@ typedef struct {
  */
 uint8_t setupMPU6050(MPU6050* mpu, I2C_HandleTypeDef* i2c_handler);
 
-HAL_StatusTypeDef MPU6050_readGyro(MPU6050* device);
-HAL_StatusTypeDef MPU6050_readAccelerometer(MPU6050* device);
+HAL_StatusTypeDef MPU6050_readMPUAndCalculatePosition(MPU6050* device);
+
+HAL_StatusTypeDef MPU6050_readGyro(MPU6050* device, float* values);
+HAL_StatusTypeDef MPU6050_readAccelerometer(MPU6050* device, float* values);
 
 HAL_StatusTypeDef MPU6050_readRegisters(MPU6050* device, uint8_t reg, uint8_t* data, uint8_t dataLen);
 HAL_StatusTypeDef MPU6050_writeRegisters(MPU6050* device, uint8_t reg, uint8_t* data, uint8_t dataLen);
