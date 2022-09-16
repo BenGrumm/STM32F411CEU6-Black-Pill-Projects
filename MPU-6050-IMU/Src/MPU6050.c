@@ -13,6 +13,12 @@ uint8_t setupMPU6050(MPU6050* mpu, I2C_HandleTypeDef* i2c_handler){
     // Initialise the mpu struct
     mpu->i2c_handler = i2c_handler;
 
+    for(int i = 0; i < 3; i++){
+        mpu->accel_angle[i] = 0;
+        mpu->gyro_angle[i] = 0;
+        mpu->position[i] = 0;
+    }
+
     mpu->lastGyroReadingTime = HAL_GetTick();
 
     // MPU-6050 addr = 0x68
@@ -44,7 +50,7 @@ HAL_StatusTypeDef MPU6050_readMPUAndCalculatePosition(MPU6050* device){
     uint32_t previouseGyroTime = device->lastGyroReadingTime;
     device->lastGyroReadingTime = HAL_GetTick();
 
-    uint32_t elapsedTime = (previouseGyroTime - device->lastGyroReadingTime) / 1000; // Calculate in seconds
+    float elapsedTime = (device->lastGyroReadingTime - previouseGyroTime) / 1000.0; // Calculate in seconds
 
     HAL_StatusTypeDef error = MPU6050_readGyro(device, gyroTemp);
 
@@ -59,9 +65,12 @@ HAL_StatusTypeDef MPU6050_readMPUAndCalculatePosition(MPU6050* device){
         device->accel_angle[0] = (atan(accelTemp[1] / sqrt(pow(accelTemp[0], 2) + pow(accelTemp[2], 2))) * 180 / M_PI) - 0.58; // Calculate accelerometer X
         device->accel_angle[1] = (atan(-1 * accelTemp[0] / sqrt(pow(accelTemp[1], 2) + pow(accelTemp[2], 2))) * 180 / M_PI) + 1.58; // Calculate accelerometer Y
 
-        device->position[0] = 0.96 * device->gyro_angle[0] + 0.04 * device->accel_angle[0];
-        device->position[1] = 0.96 * device->gyro_angle[1] + 0.04 * device->accel_angle[1];
-        device->position[1] = device->gyro_angle[2];
+        device->gyro_angle[0] = 0.96 * device->gyro_angle[0] + 0.04 * device->accel_angle[0];
+        device->gyro_angle[1] = 0.96 * device->gyro_angle[1] + 0.04 * device->accel_angle[1];
+
+        device->position[0] = device->gyro_angle[0];
+        device->position[1] = device->gyro_angle[1];
+        device->position[2] = device->gyro_angle[2];
     }
 
     return error;

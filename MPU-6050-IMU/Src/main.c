@@ -97,7 +97,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
 
   MPU6050 mpu;
-  char buffer[100];
+  char buffer[200];
 
   mpu.MPU_Accel_Range = MPU_ACCEL_SCALE_RANGE_8G;
   mpu.MPU_Gyro_Range = MPU_GYRO_SCALE_RANGE_500;
@@ -121,10 +121,10 @@ int main(void)
     }
 
     error = MPU6050_readMPUAndCalculatePosition(&mpu);
-    sprintf(buffer, "X = %f, Y = %f, Z = %f\n", mpu.position[0], mpu.position[1], mpu.position[2]);
-    CDC_Transmit_FS((uint8_t*)buffer,strlen(buffer));
+    sprintf(buffer, "X = %d, Y = %d, Z = %d\n", (int)mpu.position[0], (int)mpu.position[1], (int)mpu.position[2]);
+    CDC_Transmit_FS((uint8_t*)buffer, strlen(buffer));
 
-    HAL_Delay(50);
+    HAL_Delay(100);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
