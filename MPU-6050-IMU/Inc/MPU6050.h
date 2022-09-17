@@ -112,6 +112,8 @@ typedef struct {
  */
 uint8_t setupMPU6050(MPU6050* mpu, I2C_HandleTypeDef* i2c_handler);
 
+HAL_StatusTypeDef MPU6050_calculateGyroAndMPUError(MPU6050* device, float* gyroError, float* accelError);
+
 HAL_StatusTypeDef MPU6050_readMPUAndCalculatePosition(MPU6050* device);
 
 HAL_StatusTypeDef MPU6050_readGyro(MPU6050* device, float* values);

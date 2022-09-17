@@ -97,8 +97,6 @@ int main(void)
 
   /* USER CODE BEGIN SysInit */
 
-  HAL_Delay(20);
-
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
@@ -107,14 +105,19 @@ int main(void)
   MX_USB_DEVICE_Init();
   /* USER CODE BEGIN 2 */
 
-  HAL_Delay(20);
-
   MPU6050 mpu;
+  float gyroError[3], accelError[3];
 
-  mpu.MPU_Accel_Range = MPU_ACCEL_SCALE_RANGE_8G;
-  mpu.MPU_Gyro_Range = MPU_GYRO_SCALE_RANGE_500;
+  mpu.MPU_Accel_Range = MPU_ACCEL_SCALE_RANGE_16G;
+  mpu.MPU_Gyro_Range = MPU_GYRO_SCALE_RANGE_2000;
 
   setupMPU6050(&mpu, &hi2c1);
+  MPU6050_calculateGyroAndMPUError(&mpu, gyroError, accelError);
+
+  HAL_Delay(500);
+
+  printf("Accel X = %f, Y = %f, Z = %f --- Gyro X = %f, Y = %f, Z=%f\n\r", 
+        accelError[0], accelError[1], accelError[2], gyroError[0], gyroError[1], gyroError[2]);
 
   HAL_StatusTypeDef error;
 
@@ -133,7 +136,7 @@ int main(void)
     }
 
     error = MPU6050_readMPUAndCalculatePosition(&mpu);
-    printf("X = %d, Y = %d, Z = %d, Error? = %d\n", (int)mpu.position[0], (int)mpu.position[1], (int)mpu.position[2], (int)error);
+    printf("X = %f, Y = %f, Z = %f, Error? = %d\n", mpu.position[0], mpu.position[1], mpu.position[2], (int)error);
 
     HAL_Delay(200);
     /* USER CODE END WHILE */

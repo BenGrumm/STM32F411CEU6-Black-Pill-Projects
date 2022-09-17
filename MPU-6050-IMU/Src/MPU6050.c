@@ -55,6 +55,10 @@ HAL_StatusTypeDef MPU6050_readMPUAndCalculatePosition(MPU6050* device){
     HAL_StatusTypeDef error = MPU6050_readGyro(device, gyroTemp);
 
     if(error == HAL_OK){
+        // Account for errors calculated
+        gyroTemp[0] += 2.93;
+        gyroTemp[1] -= 1.27;
+        gyroTemp[2] += 1.45;
         device->gyro_angle[0] = device->gyro_angle[0] + (gyroTemp[0] * elapsedTime);
         device->gyro_angle[1] = device->gyro_angle[1] + (gyroTemp[1] * elapsedTime);
         device->gyro_angle[2] = device->gyro_angle[2] + (gyroTemp[2] * elapsedTime);
@@ -62,8 +66,8 @@ HAL_StatusTypeDef MPU6050_readMPUAndCalculatePosition(MPU6050* device){
     }
 
     if(error == HAL_OK){
-        device->accel_angle[0] = (atan(accelTemp[1] / sqrt(pow(accelTemp[0], 2) + pow(accelTemp[2], 2))) * 180 / M_PI) - 0.58; // Calculate accelerometer X
-        device->accel_angle[1] = (atan(-1 * accelTemp[0] / sqrt(pow(accelTemp[1], 2) + pow(accelTemp[2], 2))) * 180 / M_PI) + 1.58; // Calculate accelerometer Y
+        device->accel_angle[0] = (atan(accelTemp[1] / sqrt(pow(accelTemp[0], 2) + pow(accelTemp[2], 2))) * 180 / M_PI) + 0.32; // Calculate accelerometer X and account for error
+        device->accel_angle[1] = (atan(-1 * accelTemp[0] / sqrt(pow(accelTemp[1], 2) + pow(accelTemp[2], 2))) * 180 / M_PI) - 0.4; // Calculate accelerometer Y and account for error
 
         device->gyro_angle[0] = 0.96 * device->gyro_angle[0] + 0.04 * device->accel_angle[0];
         device->gyro_angle[1] = 0.96 * device->gyro_angle[1] + 0.04 * device->accel_angle[1];
@@ -74,6 +78,52 @@ HAL_StatusTypeDef MPU6050_readMPUAndCalculatePosition(MPU6050* device){
     }
 
     return error;
+}
+
+/**
+ * @brief Function to calculate the error by reading values when the sensor is in stationory home position
+ * 
+ * @param device mpu to measure error of
+ * @param gyroError an array of 3 float values to store the gyro error
+ * @param accelError an array of 3 float values to store the accelerometer error
+ * @return HAL_StatusTypeDef 
+ */
+HAL_StatusTypeDef MPU6050_calculateGyroAndMPUError(MPU6050* device, float* gyroError, float* accelError){
+    float valuesTemp[3];
+    gyroError[0] = 0;
+    gyroError[1] = 0;
+    gyroError[2] = 0;
+    accelError[0] = 0;
+    accelError[1] = 0;
+    accelError[2] = 0;
+
+    HAL_StatusTypeDef errorGyro, errorAccel;
+
+    for(uint8_t i = 0; i < 200; i++){
+        errorGyro = MPU6050_readGyro(device, valuesTemp);
+
+        gyroError[0] += valuesTemp[0];
+        gyroError[1] += valuesTemp[1];
+        gyroError[2] += valuesTemp[2];
+    }
+
+    gyroError[0] /= 200.0;
+    gyroError[1] /= 200.0;
+    gyroError[2] /= 200.0;
+
+    for(uint8_t i = 0; i < 200; i++){
+        errorAccel = MPU6050_readAccelerometer(device, valuesTemp);
+
+        accelError[0] += ((atan(valuesTemp[1] / sqrt(pow(valuesTemp[0], 2) + pow(valuesTemp[2], 2))) * 180 / M_PI));
+        accelError[1] += ((atan(-1 * (valuesTemp[0]) / sqrt(pow((valuesTemp[1]), 2) + pow((valuesTemp[2]), 2))) * 180 / M_PI));
+        accelError[2] += valuesTemp[2];
+    }
+
+    accelError[0] /= 200.0;
+    accelError[1] /= 200.0;
+    accelError[2] /= 200.0;
+
+    return errorAccel | errorGyro;
 }
 
 /**
