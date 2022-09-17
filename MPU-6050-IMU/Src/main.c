@@ -24,6 +24,7 @@
 /* USER CODE BEGIN Includes */
 #include "MPU6050.h"
 #include <string.h>
+#include "usbd_cdc_if.h"
 
 /* USER CODE END Includes */
 
@@ -56,11 +57,19 @@ static void MX_I2C1_Init(void);
 /* USER CODE BEGIN PFP */
 
 extern uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len);
+extern USBD_HandleTypeDef hUsbDeviceFS;
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+int _write(int file, char *ptr, int len)
+{
+    UNUSED(file);
+    CDC_Transmit_FS((uint8_t*)ptr, len);
+    return len;
+}
 
 /* USER CODE END 0 */
 
@@ -88,6 +97,8 @@ int main(void)
 
   /* USER CODE BEGIN SysInit */
 
+  HAL_Delay(20);
+
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
@@ -96,8 +107,9 @@ int main(void)
   MX_USB_DEVICE_Init();
   /* USER CODE BEGIN 2 */
 
+  HAL_Delay(20);
+
   MPU6050 mpu;
-  char buffer[200];
 
   mpu.MPU_Accel_Range = MPU_ACCEL_SCALE_RANGE_8G;
   mpu.MPU_Gyro_Range = MPU_GYRO_SCALE_RANGE_500;
@@ -121,10 +133,9 @@ int main(void)
     }
 
     error = MPU6050_readMPUAndCalculatePosition(&mpu);
-    sprintf(buffer, "X = %d, Y = %d, Z = %d\n", (int)mpu.position[0], (int)mpu.position[1], (int)mpu.position[2]);
-    CDC_Transmit_FS((uint8_t*)buffer, strlen(buffer));
+    printf("X = %d, Y = %d, Z = %d, Error? = %d\n", (int)mpu.position[0], (int)mpu.position[1], (int)mpu.position[2], (int)error);
 
-    HAL_Delay(100);
+    HAL_Delay(200);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
