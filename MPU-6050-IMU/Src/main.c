@@ -132,7 +132,7 @@ int main(void)
 
   uint32_t lastFlash = HAL_GetTick();
   float gyro[3], accel[3];
-  uint32_t sampleTime, lastSampleTime = 0;
+  uint32_t sampleTime, lastSampleTime = HAL_GetTick();
 
 
   while (1)
@@ -152,13 +152,13 @@ int main(void)
 
     const FusionEuler euler = FusionQuaternionToEuler(FusionAhrsGetQuaternion(&ahrs));
 
+    printf("%0.1f/%0.1f/%0.1f\n", euler.angle.roll, euler.angle.pitch, euler.angle.yaw);
+
     if(HAL_GetTick() - lastFlash > 1000){
       HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
       lastFlash = HAL_GetTick();
-      printf("Roll %0.1f, Pitch %0.1f, Yaw %0.1f\n", euler.angle.roll, euler.angle.pitch, euler.angle.yaw);
     }
 
-    HAL_Delay(100);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
