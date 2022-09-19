@@ -108,8 +108,8 @@ int main(void)
   MPU6050 mpu;
   float gyroError[3], accelError[3];
 
-  mpu.MPU_Accel_Range = MPU_ACCEL_SCALE_RANGE_16G;
-  mpu.MPU_Gyro_Range = MPU_GYRO_SCALE_RANGE_2000;
+  mpu.MPU_Accel_Range = MPU_ACCEL_SCALE_RANGE_2G;
+  mpu.MPU_Gyro_Range = MPU_GYRO_SCALE_RANGE_250;
 
   setupMPU6050(&mpu, &hi2c1);
   MPU6050_calculateGyroAndMPUError(&mpu, gyroError, accelError);
@@ -136,9 +136,8 @@ int main(void)
     }
 
     error = MPU6050_readMPUAndCalculatePosition(&mpu);
-    printf("X = %f, Y = %f, Z = %f, Error? = %d\n", mpu.position[0], mpu.position[1], mpu.position[2], (int)error);
+    printf("%f/%f/%f\n", mpu.position[0], mpu.position[1], mpu.position[2]);
 
-    HAL_Delay(200);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
