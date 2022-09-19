@@ -150,9 +150,14 @@ int main(void)
     FusionAhrsUpdateNoMagnetometer(&ahrs, gyroscope, accelerometer, (sampleTime - lastSampleTime) / 1000.0f);
     lastSampleTime = sampleTime;
 
-    const FusionEuler euler = FusionQuaternionToEuler(FusionAhrsGetQuaternion(&ahrs));
+    const FusionQuaternion quat = FusionAhrsGetQuaternion(&ahrs);
+    // const FusionEuler euler = FusionQuaternionToEuler(quat);
 
-    printf("%0.1f/%0.1f/%0.1f\n", euler.angle.roll, euler.angle.pitch, euler.angle.yaw);
+#define Q quat.element
+    printf("%0.3f/%0.3f/%0.3f/%0.3f\n", Q.w, Q.x, Q.y, Q.z);
+#undef Q
+
+    // printf("%0.1f/%0.1f/%0.1f\n", euler.angle.roll, euler.angle.pitch, euler.angle.yaw);
 
     if(HAL_GetTick() - lastFlash > 1000){
       HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
