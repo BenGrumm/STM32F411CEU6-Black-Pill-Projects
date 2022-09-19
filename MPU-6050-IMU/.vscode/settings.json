@@ -1,3 +1,7 @@
 {
     "makefile.extensionOutputFolder": "./.vscode",
+    "files.associations": {
+        "string.h": "c",
+        "usbd_cdc_if.h": "c"
+    },
 }

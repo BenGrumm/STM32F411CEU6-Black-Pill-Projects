@@ -25,6 +25,9 @@
 #include "MPU6050.h"
 #include <string.h>
 #include "usbd_cdc_if.h"
+#include "Fusion.h"
+#include <stdbool.h>
+#include <stdio.h>
 
 /* USER CODE END Includes */
 
@@ -35,6 +38,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define SAMPLE_PERIOD (0.1f)
 
 /* USER CODE END PD */
 
@@ -107,14 +111,14 @@ int main(void)
 
   MPU6050 mpu;
   float gyroError[3], accelError[3];
+  FusionAhrs ahrs;
+  FusionAhrsInitialise(&ahrs);
 
   mpu.MPU_Accel_Range = MPU_ACCEL_SCALE_RANGE_16G;
   mpu.MPU_Gyro_Range = MPU_GYRO_SCALE_RANGE_2000;
 
   setupMPU6050(&mpu, &hi2c1);
   MPU6050_calculateGyroAndMPUError(&mpu, gyroError, accelError);
-
-  HAL_Delay(500);
 
   printf("Accel X = %f, Y = %f, Z = %f --- Gyro X = %f, Y = %f, Z=%f\n\r", 
         accelError[0], accelError[1], accelError[2], gyroError[0], gyroError[1], gyroError[2]);
@@ -126,19 +130,35 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 
-  int lastFlash = HAL_GetTick();
+  uint32_t lastFlash = HAL_GetTick();
+  float gyro[3], accel[3];
+  uint32_t sampleTime, lastSampleTime = 0;
+
 
   while (1)
   {
+
+    sampleTime = HAL_GetTick();
+    error = MPU6050_readGyro(&mpu, gyro);
+    error = MPU6050_readAccelerometer(&mpu, accel);
+    // error = MPU6050_readMPUAndCalculatePosition(&mpu);
+    // printf("X = %f, Y = %f, Z = %f, Error? = %d\n", mpu.position[0], mpu.position[1], mpu.position[2], (int)error);
+
+    const FusionVector gyroscope = {{gyro[0], gyro[1], gyro[2]}}; // replace this with actual gyroscope data in degrees/s
+    const FusionVector accelerometer = {{accel[0], accel[1], accel[2]}}; // replace this with actual accelerometer data in g
+
+    FusionAhrsUpdateNoMagnetometer(&ahrs, gyroscope, accelerometer, (sampleTime - lastSampleTime) / 1000.0f);
+    lastSampleTime = sampleTime;
+
+    const FusionEuler euler = FusionQuaternionToEuler(FusionAhrsGetQuaternion(&ahrs));
+
     if(HAL_GetTick() - lastFlash > 1000){
       HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
       lastFlash = HAL_GetTick();
+      printf("Roll %0.1f, Pitch %0.1f, Yaw %0.1f\n", euler.angle.roll, euler.angle.pitch, euler.angle.yaw);
     }
 
-    error = MPU6050_readMPUAndCalculatePosition(&mpu);
-    printf("X = %f, Y = %f, Z = %f, Error? = %d\n", mpu.position[0], mpu.position[1], mpu.position[2], (int)error);
-
-    HAL_Delay(200);
+    HAL_Delay(100);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
