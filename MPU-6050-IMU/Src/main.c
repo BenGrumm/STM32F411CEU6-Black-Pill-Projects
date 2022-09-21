@@ -109,15 +109,15 @@ int main(void)
   MX_USB_DEVICE_Init();
   /* USER CODE BEGIN 2 */
 
-  MPU6050 mpu;
-  float gyroError[3], accelError[3];
+  MPU6050 mpu;  
   FusionAhrs ahrs;
-  FusionAhrsInitialise(&ahrs);
+  float gyroError[3], accelError[3];
 
   mpu.MPU_Accel_Range = MPU_ACCEL_SCALE_RANGE_16G;
   mpu.MPU_Gyro_Range = MPU_GYRO_SCALE_RANGE_2000;
 
-  setupMPU6050(&mpu, &hi2c1);
+  setupMPU6050(&mpu, &hi2c1, &ahrs);
+
   MPU6050_calculateGyroAndMPUError(&mpu, gyroError, accelError);
 
   printf("Accel X = %f, Y = %f, Z = %f --- Gyro X = %f, Y = %f, Z=%f\n\r", 
@@ -131,33 +131,22 @@ int main(void)
   /* USER CODE BEGIN WHILE */
 
   uint32_t lastFlash = HAL_GetTick();
-  float gyro[3], accel[3];
-  uint32_t sampleTime, lastSampleTime = HAL_GetTick();
-
 
   while (1)
   {
 
-    sampleTime = HAL_GetTick();
-    error = MPU6050_readGyro(&mpu, gyro);
-    error = MPU6050_readAccelerometer(&mpu, accel);
     // error = MPU6050_readMPUAndCalculatePosition(&mpu);
     // printf("X = %f, Y = %f, Z = %f, Error? = %d\n", mpu.position[0], mpu.position[1], mpu.position[2], (int)error);
 
-    const FusionVector gyroscope = {{gyro[0], gyro[1], gyro[2]}}; // replace this with actual gyroscope data in degrees/s
-    const FusionVector accelerometer = {{accel[0], accel[1], accel[2]}}; // replace this with actual accelerometer data in g
-
-    FusionAhrsUpdateNoMagnetometer(&ahrs, gyroscope, accelerometer, (sampleTime - lastSampleTime) / 1000.0f);
-    lastSampleTime = sampleTime;
+    MPU6050_readMPUAndCalculatePositionFusion(&mpu);
 
     const FusionQuaternion quat = FusionAhrsGetQuaternion(&ahrs);
     // const FusionEuler euler = FusionQuaternionToEuler(quat);
-
-#define Q quat.element
-    printf("%0.3f/%0.3f/%0.3f/%0.3f\n", Q.w, Q.x, Q.y, Q.z);
-#undef Q
-
     // printf("%0.1f/%0.1f/%0.1f\n", euler.angle.roll, euler.angle.pitch, euler.angle.yaw);
+
+    #define Q quat.element
+        printf("%0.3f/%0.3f/%0.3f/%0.3f\n", Q.w, Q.x, Q.y, Q.z);
+    #undef Q
 
     if(HAL_GetTick() - lastFlash > 1000){
       HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);

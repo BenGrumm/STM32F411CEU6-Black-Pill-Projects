@@ -21,6 +21,7 @@
 #define MPU6050_I2C_DRIVER_H
 
 #include "stm32f4xx_hal.h"
+#include "Fusion.h"
 #include <math.h>
 
 /**
@@ -97,6 +98,7 @@ typedef struct {
     uint8_t MPU_Gyro_Range; // One of MPU_GYRO_SCALE_RANGE_250 - MPU_GYRO_SCALE_RANGE_2000
     uint8_t MPU_Accel_Range; //  One of MPU_ACCEL_SCALE_RANGE_2G - MPU_ACCEL_SCALE_RANGE_16G
 
+    FusionAhrs* ahrs;
     float gyro_angle[3]; // X, Y, Z
     float accel_angle[3]; // X, Y, Z
 
@@ -110,10 +112,11 @@ typedef struct {
  * 
  * @return int 
  */
-uint8_t setupMPU6050(MPU6050* mpu, I2C_HandleTypeDef* i2c_handler);
+uint8_t setupMPU6050(MPU6050* mpu, I2C_HandleTypeDef* i2c_handler, FusionAhrs* ahrs);
 
 HAL_StatusTypeDef MPU6050_calculateGyroAndMPUError(MPU6050* device, float* gyroError, float* accelError);
 
+HAL_StatusTypeDef MPU6050_readMPUAndCalculatePositionFusion(MPU6050* device);
 HAL_StatusTypeDef MPU6050_readMPUAndCalculatePosition(MPU6050* device);
 
 HAL_StatusTypeDef MPU6050_readGyro(MPU6050* device, float* values);
