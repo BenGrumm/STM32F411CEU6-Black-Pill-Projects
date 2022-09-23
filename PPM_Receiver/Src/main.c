@@ -23,6 +23,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "usbd_cdc_if.h"
+#include "FS-IA10B_driver.h"
 
 /* USER CODE END Includes */
 
@@ -53,34 +54,15 @@ static void MX_GPIO_Init(void);
 static void MX_TIM1_Init(void);
 /* USER CODE BEGIN PFP */
 extern uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len);
+extern uint16_t fsia10b_channel_values[];
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-#define FREQ_APB1       96000000 // 96MHz
-#define TIM_PRESCALER   96     // 96000000 / 96 = 1MHz = 0.01uS
-
-uint16_t values[8] = {0};
-uint8_t currentPos = 0;
-
 void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim){
-    if(htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1){
-        uint32_t val = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_1);
-
-        // 1 tick = 1uS
-        // Normal length from 1ms - 2ms, over 2ms is gap between last and first signal
-        // (min of the inteval signal is 4ms)
-        if(val >= 2500 || currentPos == 8){
-            currentPos = 0;
-        }else{
-            values[currentPos++] = val;
-        }
-
-        // Reset
-        __HAL_TIM_SET_COUNTER(htim, 0);
-    }
+    FSIA10B_INT(htim);
 }
 
 int _write(int file, char *ptr, int len)
@@ -124,7 +106,7 @@ int main(void)
   MX_USB_DEVICE_Init();
   /* USER CODE BEGIN 2 */
 
-    HAL_StatusTypeDef error = HAL_TIM_IC_Start_IT(&htim1, TIM_CHANNEL_1);
+  HAL_StatusTypeDef error = HAL_TIM_IC_Start_IT(&htim1, TIM_CHANNEL_1);
 
   /* USER CODE END 2 */
 
@@ -136,8 +118,8 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
         printf("1 - %4d, 2 - %4d, 3 - %4d, 4 - %4d, 5 - %4d, 6 - %4d, 7 - %4d, 8 - %4d\n", 
-            values[0], values[1], values[2], values[3], 
-            values[4], values[5], values[6], values[7]);
+            fsia10b_channel_values[0], fsia10b_channel_values[1], fsia10b_channel_values[2], fsia10b_channel_values[3], 
+            fsia10b_channel_values[4], fsia10b_channel_values[5], fsia10b_channel_values[6], fsia10b_channel_values[7]);
         HAL_Delay(500);
     }
   /* USER CODE END 3 */
