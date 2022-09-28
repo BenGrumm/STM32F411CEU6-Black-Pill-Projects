@@ -62,7 +62,7 @@ extern uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-volatile uint16_t adcVal = 0;
+Battery bat;
 
 int _write(int file, char *ptr, int len)
 {
@@ -73,7 +73,7 @@ int _write(int file, char *ptr, int len)
 
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
 {
-  adcVal = HAL_ADC_GetValue(&hadc1);
+  BatteryADCIRQ(hadc, &bat);
 }
 
 /* USER CODE END 0 */
@@ -117,13 +117,16 @@ int main(void)
   __HAL_TIM_CLEAR_FLAG(&htim3, TIM_FLAG_UPDATE);
   HAL_ADC_Start_IT(&hadc1);
 
+  bat.resistor_one = 100000;
+  bat.resistor_two = 22000;
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    printf("%d\n", adcVal);
+    printf("%f\n", bat.voltage);
     // HAL_ADC_Start_IT(&hadc1);
     // printf("%d\n", adc_buf[0]);
     HAL_Delay(500);
