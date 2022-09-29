@@ -1,5 +1,12 @@
 #include "MPU6050.h"
 
+// Functions only used in this file
+void calculateOrientationFusion(MPU6050* device, float* gyroValues, float* accelValues);
+void MPU6050_convertRegsToSignedVals(uint8_t* regs, int16_t* dest, uint8_t numRegs);
+void convertGyroRegsToDegreesS(MPU6050* device, int16_t* gyroValues, float* values);
+void convertAccelRegToGs(MPU6050* device, int16_t* accelValues, float* values);
+void convertTemperatureRegToCelsius(int16_t* regValue, float* actualVal);
+
 /**
  * @brief MPU setup function that will initialise MPU struct and setup the MPU6050 for use
  * 
@@ -21,6 +28,13 @@ uint8_t setupMPU6050(MPU6050* mpu, I2C_HandleTypeDef* i2c_handler, FusionAhrs* a
         mpu->gyro_angle[i] = 0;
         mpu->position[i] = 0;
     }
+
+    // Setup dma vars
+    mpu->hasNewData = false;
+    for(int i = 0; i < MPU6050_CONSECUTIVE_DATA_REGS; i++){
+        mpu->dmaDataBuffer[i] = 0;
+    }
+    mpu->currentGyroReadTime = 0;
 
     mpu->lastGyroReadingTime = HAL_GetTick();
 
@@ -55,6 +69,97 @@ uint8_t setupMPU6050(MPU6050* mpu, I2C_HandleTypeDef* i2c_handler, FusionAhrs* a
     returnError += (error != HAL_OK);
 
     return returnError;
+}
+
+HAL_StatusTypeDef MPU6050_ReadDataDMA(MPU6050* device){
+    return HAL_I2C_Mem_Read_DMA(device->i2c_handler, MPU6050_I2C_ADDR, MPU_ACCEL_XOUT_H, I2C_MEMADD_SIZE_8BIT, device->dmaDataBuffer, MPU6050_CONSECUTIVE_DATA_REGS);
+}
+
+void MPU6050_DMAReadCplt(MPU6050* device){
+    device->hasNewData = true;
+    device->currentGyroReadTime = HAL_GetTick();
+}
+
+void MPU6050_DMALoop(MPU6050* device){
+    if(device->hasNewData){
+        int16_t convertedRegs[MPU6050_CONSECUTIVE_DATA_REGS / 2];
+        MPU6050_convertRegsToSignedVals(device->dmaDataBuffer, convertedRegs, MPU6050_CONSECUTIVE_DATA_REGS);
+
+        float gyroValues[3], temperatureVal, accelValues[3];
+
+        // Convert all register values to their actual values
+        convertGyroRegsToDegreesS(device, &convertedRegs[5], gyroValues);
+        convertAccelRegToGs(device, convertedRegs, accelValues);
+        convertTemperatureRegToCelsius(&convertedRegs[3], &temperatureVal);
+
+        calculateOrientationFusion(device, gyroValues, accelValues);
+        
+        device->hasNewData = false;
+
+        // Make sure I2C is free then start DMA read again
+        while(HAL_I2C_GetState(device->i2c_handler) != HAL_I2C_STATE_READY);
+        MPU6050_ReadDataDMA(device);
+    }
+}
+
+void calculateOrientationFusion(MPU6050* device, float* gyroValues, float* accelValues){
+    float elapsedTime = (device->currentGyroReadTime - device->lastGyroReadingTime) / 1000.0f;
+
+    // Calculate position 
+    const FusionVector gyroscope = {{gyroValues[0], gyroValues[1], gyroValues[2]}};
+    const FusionVector accelerometer = {{accelValues[0], accelValues[1], accelValues[2]}};
+    FusionAhrsUpdateNoMagnetometer(device->ahrs, gyroscope, accelerometer, elapsedTime);
+
+    device->lastGyroReadingTime = device->currentGyroReadTime;
+}
+
+void MPU6050_convertRegsToSignedVals(uint8_t* regs, int16_t* dest, uint8_t numRegs){
+    for(int i = 0; i < numRegs; i+=2){
+        dest[i / 2] = ((int16_t) regs[i]) << 8;
+        dest[i / 2] |= regs[i + 1];
+    }
+}
+
+void convertGyroRegsToDegreesS(MPU6050* device, int16_t* gyroValues, float* values){
+    for(int i = 0; i < 3; i++){
+        switch(device->MPU_Gyro_Range){
+            case MPU_GYRO_SCALE_RANGE_250:
+                values[i] = (float) gyroValues[i] / MPU_GYRO_SENSITIVITY_250;
+                break;
+            case MPU_GYRO_SCALE_RANGE_500:
+                values[i] = (float) gyroValues[i] / MPU_GYRO_SENSITIVITY_500;
+                break;
+            case MPU_GYRO_SCALE_RANGE_1000:
+                values[i] = (float) gyroValues[i] / MPU_GYRO_SENSITIVITY_1000;
+                break;
+            case MPU_GYRO_SCALE_RANGE_2000:
+                values[i] = (float) gyroValues[i] / MPU_GYRO_SENSITIVITY_2000;
+                break;
+        }
+    }
+}
+
+void convertAccelRegToGs(MPU6050* device, int16_t* accelValues, float* values){
+    for(int i = 0; i < 3; i++){
+        switch(device->MPU_Accel_Range){
+            case MPU_ACCEL_SCALE_RANGE_2G:
+                values[i] = (float) accelValues[i] / MPU_ACCEL_SENSITIVITY_2G;
+                break;
+            case MPU_ACCEL_SCALE_RANGE_4G:
+                values[i] = (float) accelValues[i] / MPU_ACCEL_SENSITIVITY_4G;
+                break;
+            case MPU_ACCEL_SCALE_RANGE_8G:
+                values[i] = (float) accelValues[i] / MPU_ACCEL_SENSITIVITY_8G;
+                break;
+            case MPU_ACCEL_SCALE_RANGE_16G:
+                values[i] = (float) accelValues[i] / MPU_ACCEL_SENSITIVITY_16G;
+                break;
+        }
+    }
+}
+
+void convertTemperatureRegToCelsius(int16_t* regValue, float* actualVal){
+    *actualVal = (*regValue / 340.0) + 36.53;
 }
 
 /**

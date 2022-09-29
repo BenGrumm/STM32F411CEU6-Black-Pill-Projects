@@ -49,14 +49,18 @@
 
 /* Private variables ---------------------------------------------------------*/
 I2C_HandleTypeDef hi2c1;
+DMA_HandleTypeDef hdma_i2c1_rx;
 
 /* USER CODE BEGIN PV */
+
+MPU6050 mpu;
 
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_DMA_Init(void);
 static void MX_I2C1_Init(void);
 /* USER CODE BEGIN PFP */
 
@@ -67,6 +71,10 @@ extern USBD_HandleTypeDef hUsbDeviceFS;
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+void HAL_I2C_MemRxCpltCallback(I2C_HandleTypeDef *hi2c){
+  MPU6050_DMAReadCplt(&mpu);
+}
 
 int _write(int file, char *ptr, int len)
 {
@@ -105,16 +113,16 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_I2C1_Init();
   MX_USB_DEVICE_Init();
   /* USER CODE BEGIN 2 */
 
-  MPU6050 mpu;  
   FusionAhrs ahrs;
   float gyroError[3], accelError[3];
 
-  mpu.MPU_Accel_Range = MPU_ACCEL_SCALE_RANGE_2G;
-  mpu.MPU_Gyro_Range = MPU_GYRO_SCALE_RANGE_250;
+  mpu.MPU_Accel_Range = MPU_ACCEL_SCALE_RANGE_16G;
+  mpu.MPU_Gyro_Range = MPU_GYRO_SCALE_RANGE_2000;
 
   setupMPU6050(&mpu, &hi2c1, &ahrs);
 
@@ -131,6 +139,7 @@ int main(void)
   /* USER CODE BEGIN WHILE */
 
   uint32_t lastFlash = HAL_GetTick();
+  MPU6050_ReadDataDMA(&mpu);
 
   while (1)
   {
@@ -138,7 +147,7 @@ int main(void)
     // error = MPU6050_readMPUAndCalculatePosition(&mpu);
     // printf("X = %f, Y = %f, Z = %f, Error? = %d\n", mpu.position[0], mpu.position[1], mpu.position[2], (int)error);
 
-    MPU6050_readMPUAndCalculatePositionFusion(&mpu);
+    // MPU6050_readMPUAndCalculatePositionFusion(&mpu);
 
     const FusionQuaternion quat = FusionAhrsGetQuaternion(&ahrs);
     // const FusionEuler euler = FusionQuaternionToEuler(quat);
@@ -147,6 +156,8 @@ int main(void)
     #define Q quat.element
         printf("%0.3f/%0.3f/%0.3f/%0.3f\n", Q.w, Q.x, Q.y, Q.z);
     #undef Q
+
+    MPU6050_DMALoop(&mpu);
 
     if(HAL_GetTick() - lastFlash > 1000){
       HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
@@ -240,6 +251,22 @@ static void MX_I2C1_Init(void)
 }
 
 /**
+  * Enable DMA controller clock
+  */
+static void MX_DMA_Init(void)
+{
+
+  /* DMA controller clock enable */
+  __HAL_RCC_DMA1_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA1_Stream0_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream0_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream0_IRQn);
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -264,15 +291,6 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-  GPIO_InitStruct.Pin = GPIO_PIN_7;
-  GPIO_InitStruct.Mode = GPIO_MODE_AF_OD;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
-  GPIO_InitStruct.Alternate = GPIO_AF4_I2C1;
-  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
-
-  GPIO_InitStruct.Pin = GPIO_PIN_6;
-  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 }
 
 /* USER CODE BEGIN 4 */

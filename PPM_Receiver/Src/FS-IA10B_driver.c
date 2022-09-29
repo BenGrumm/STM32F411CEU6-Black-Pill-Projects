@@ -3,6 +3,11 @@
 uint16_t fsia10b_channel_values[FSIA10B_NUMBER_CHANNELS] = {0};
 static uint8_t currentPos = 0;
 
+/**
+ * @brief Funtion to call in interrupt handler to calculate the length of each channel
+ * 
+ * @param htim handle
+ */
 void FSIA10B_INT(TIM_HandleTypeDef *htim){
     if(htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1){
         uint32_t val = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_1);
