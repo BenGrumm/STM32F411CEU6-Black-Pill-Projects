@@ -25,6 +25,9 @@
 #include "MPU6050.h"
 #include <string.h>
 #include "usbd_cdc_if.h"
+#include "Fusion.h"
+#include <stdbool.h>
+#include <stdio.h>
 
 /* USER CODE END Includes */
 
@@ -35,6 +38,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define SAMPLE_PERIOD (0.1f)
 
 /* USER CODE END PD */
 
@@ -105,16 +109,16 @@ int main(void)
   MX_USB_DEVICE_Init();
   /* USER CODE BEGIN 2 */
 
-  MPU6050 mpu;
+  MPU6050 mpu;  
+  FusionAhrs ahrs;
   float gyroError[3], accelError[3];
 
   mpu.MPU_Accel_Range = MPU_ACCEL_SCALE_RANGE_2G;
   mpu.MPU_Gyro_Range = MPU_GYRO_SCALE_RANGE_250;
 
-  setupMPU6050(&mpu, &hi2c1);
-  MPU6050_calculateGyroAndMPUError(&mpu, gyroError, accelError);
+  setupMPU6050(&mpu, &hi2c1, &ahrs);
 
-  HAL_Delay(500);
+  MPU6050_calculateGyroAndMPUError(&mpu, gyroError, accelError);
 
   printf("Accel X = %f, Y = %f, Z = %f --- Gyro X = %f, Y = %f, Z=%f\n\r", 
         accelError[0], accelError[1], accelError[2], gyroError[0], gyroError[1], gyroError[2]);
@@ -126,17 +130,28 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 
-  int lastFlash = HAL_GetTick();
+  uint32_t lastFlash = HAL_GetTick();
 
   while (1)
   {
+
+    // error = MPU6050_readMPUAndCalculatePosition(&mpu);
+    // printf("X = %f, Y = %f, Z = %f, Error? = %d\n", mpu.position[0], mpu.position[1], mpu.position[2], (int)error);
+
+    MPU6050_readMPUAndCalculatePositionFusion(&mpu);
+
+    const FusionQuaternion quat = FusionAhrsGetQuaternion(&ahrs);
+    // const FusionEuler euler = FusionQuaternionToEuler(quat);
+    // printf("%0.1f/%0.1f/%0.1f\n", euler.angle.roll, euler.angle.pitch, euler.angle.yaw);
+
+    #define Q quat.element
+        printf("%0.3f/%0.3f/%0.3f/%0.3f\n", Q.w, Q.x, Q.y, Q.z);
+    #undef Q
+
     if(HAL_GetTick() - lastFlash > 1000){
       HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
       lastFlash = HAL_GetTick();
     }
-
-    error = MPU6050_readMPUAndCalculatePosition(&mpu);
-    printf("%f/%f/%f\n", mpu.position[0], mpu.position[1], mpu.position[2]);
 
     /* USER CODE END WHILE */
 
