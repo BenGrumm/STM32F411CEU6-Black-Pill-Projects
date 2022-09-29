@@ -72,12 +72,12 @@ uint8_t setupMPU6050(MPU6050* mpu, I2C_HandleTypeDef* i2c_handler, FusionAhrs* a
 }
 
 HAL_StatusTypeDef MPU6050_ReadDataDMA(MPU6050* device){
+    device->currentGyroReadTime = HAL_GetTick();
     return HAL_I2C_Mem_Read_DMA(device->i2c_handler, MPU6050_I2C_ADDR, MPU_ACCEL_XOUT_H, I2C_MEMADD_SIZE_8BIT, device->dmaDataBuffer, MPU6050_CONSECUTIVE_DATA_REGS);
 }
 
 void MPU6050_DMAReadCplt(MPU6050* device){
     device->hasNewData = true;
-    device->currentGyroReadTime = HAL_GetTick();
 }
 
 void MPU6050_DMALoop(MPU6050* device){
