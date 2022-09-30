@@ -1,11 +1,11 @@
 #include "MPU6050.h"
 
 // Functions only used in this file
-void calculateOrientationFusion(MPU6050* device, float* gyroValues, float* accelValues);
-void MPU6050_convertRegsToSignedVals(uint8_t* regs, int16_t* dest, uint8_t numRegs);
-void convertGyroRegsToDegreesS(MPU6050* device, int16_t* gyroValues, float* values);
-void convertAccelRegToGs(MPU6050* device, int16_t* accelValues, float* values);
-void convertTemperatureRegToCelsius(int16_t* regValue, float* actualVal);
+static void calculateOrientationFusion(MPU6050* device, float* gyroValues, float* accelValues);
+static void MPU6050_convertRegsToSignedVals(uint8_t* regs, int16_t* dest, uint8_t numRegs);
+static void convertGyroRegsToDegreesS(MPU6050* device, int16_t* gyroValues, float* values);
+static void convertAccelRegToGs(MPU6050* device, int16_t* accelValues, float* values);
+static void convertTemperatureRegToCelsius(int16_t* regValue, float* actualVal);
 
 /**
  * @brief MPU setup function that will initialise MPU struct and setup the MPU6050 for use
@@ -71,15 +71,31 @@ uint8_t setupMPU6050(MPU6050* mpu, I2C_HandleTypeDef* i2c_handler, FusionAhrs* a
     return returnError;
 }
 
+/**
+ * @brief Function to read the accel, temperature and gyro data using a DMA
+ * 
+ * @param device the device to read the data from
+ * @return HAL_StatusTypeDef succesful I2C mem read
+ */
 HAL_StatusTypeDef MPU6050_ReadDataDMA(MPU6050* device){
     device->currentGyroReadTime = HAL_GetTick();
     return HAL_I2C_Mem_Read_DMA(device->i2c_handler, MPU6050_I2C_ADDR, MPU_ACCEL_XOUT_H, I2C_MEMADD_SIZE_8BIT, device->dmaDataBuffer, MPU6050_CONSECUTIVE_DATA_REGS);
 }
 
+/**
+ * @brief Function that should be called in the DMA callback
+ * 
+ * @param device the device that is being read
+ */
 void MPU6050_DMAReadCplt(MPU6050* device){
     device->hasNewData = true;
 }
 
+/**
+ * @brief When using DMA this function should be called in the main loop of the function
+ * 
+ * @param device the device that is being read
+ */
 void MPU6050_DMALoop(MPU6050* device){
     if(device->hasNewData){
         int16_t convertedRegs[MPU6050_CONSECUTIVE_DATA_REGS / 2];
@@ -88,7 +104,8 @@ void MPU6050_DMALoop(MPU6050* device){
         float gyroValues[3], temperatureVal, accelValues[3];
 
         // Convert all register values to their actual values
-        convertGyroRegsToDegreesS(device, &convertedRegs[5], gyroValues);
+        // 0-2 contain accel - 3 contains temp - 4-6 contains gyro
+        convertGyroRegsToDegreesS(device, &convertedRegs[4], gyroValues);
         convertAccelRegToGs(device, convertedRegs, accelValues);
         convertTemperatureRegToCelsius(&convertedRegs[3], &temperatureVal);
 
@@ -102,7 +119,14 @@ void MPU6050_DMALoop(MPU6050* device){
     }
 }
 
-void calculateOrientationFusion(MPU6050* device, float* gyroValues, float* accelValues){
+/**
+ * @brief function to take the gyro and accel values and use the Fusion library to calculate orientation
+ * 
+ * @param device device that the data was read from
+ * @param gyroValues gyro values that are read from MPU and converted to degrees/s
+ * @param accelValues gyro values that are read from MPU and converted to g
+ */
+static void calculateOrientationFusion(MPU6050* device, float* gyroValues, float* accelValues){
     float elapsedTime = (device->currentGyroReadTime - device->lastGyroReadingTime) / 1000.0f;
 
     // Calculate position 
@@ -113,52 +137,84 @@ void calculateOrientationFusion(MPU6050* device, float* gyroValues, float* accel
     device->lastGyroReadingTime = device->currentGyroReadTime;
 }
 
-void MPU6050_convertRegsToSignedVals(uint8_t* regs, int16_t* dest, uint8_t numRegs){
+/**
+ * @brief Convert an array of unsigned 8 bit numbers retreived from the MPU to the signed 16 bit values
+ * 
+ * @param regs array of unsigned 8 bit values 
+ * @param dest where to store the signed 16 bit values (must be half the size of the number of 8 bit)
+ * @param numRegs number of 8 bit regs passed (must be a multiple of 2)
+ */
+static void MPU6050_convertRegsToSignedVals(uint8_t* regs, int16_t* dest, uint8_t numRegs){
+
+    if(numRegs % 2 != 0){
+        return;
+    }
+
     for(int i = 0; i < numRegs; i+=2){
         dest[i / 2] = ((int16_t) regs[i]) << 8;
         dest[i / 2] |= regs[i + 1];
     }
 }
 
-void convertGyroRegsToDegreesS(MPU6050* device, int16_t* gyroValues, float* values){
+/**
+ * @brief Converts the signed 16 bit gyro values from the MPU to degrees per second using set sensitivity
+ * 
+ * @param device device the values were retreived from
+ * @param regValues values retreived from device (must be of size 3 with X, Y, Z values)
+ * @param converted where to store converted values (must be of size 3 stored in X, Y, Z order)
+ */
+static void convertGyroRegsToDegreesS(MPU6050* device, int16_t* regValues, float* converted){
     for(int i = 0; i < 3; i++){
         switch(device->MPU_Gyro_Range){
             case MPU_GYRO_SCALE_RANGE_250:
-                values[i] = (float) gyroValues[i] / MPU_GYRO_SENSITIVITY_250;
+                converted[i] = (float) regValues[i] / MPU_GYRO_SENSITIVITY_250;
                 break;
             case MPU_GYRO_SCALE_RANGE_500:
-                values[i] = (float) gyroValues[i] / MPU_GYRO_SENSITIVITY_500;
+                converted[i] = (float) regValues[i] / MPU_GYRO_SENSITIVITY_500;
                 break;
             case MPU_GYRO_SCALE_RANGE_1000:
-                values[i] = (float) gyroValues[i] / MPU_GYRO_SENSITIVITY_1000;
+                converted[i] = (float) regValues[i] / MPU_GYRO_SENSITIVITY_1000;
                 break;
             case MPU_GYRO_SCALE_RANGE_2000:
-                values[i] = (float) gyroValues[i] / MPU_GYRO_SENSITIVITY_2000;
+                converted[i] = (float) regValues[i] / MPU_GYRO_SENSITIVITY_2000;
                 break;
         }
     }
 }
 
-void convertAccelRegToGs(MPU6050* device, int16_t* accelValues, float* values){
+/**
+ * @brief Converts the signed 16 bit values to the g value depending on sensitivity set
+ * 
+ * @param device mpu values were retrieved from 
+ * @param regValues 16 bit values retrieved from the mpu
+ * @param converted destination for the converted values
+ */
+static void convertAccelRegToGs(MPU6050* device, int16_t* regValues, float* converted){
     for(int i = 0; i < 3; i++){
         switch(device->MPU_Accel_Range){
             case MPU_ACCEL_SCALE_RANGE_2G:
-                values[i] = (float) accelValues[i] / MPU_ACCEL_SENSITIVITY_2G;
+                converted[i] = (float) regValues[i] / MPU_ACCEL_SENSITIVITY_2G;
                 break;
             case MPU_ACCEL_SCALE_RANGE_4G:
-                values[i] = (float) accelValues[i] / MPU_ACCEL_SENSITIVITY_4G;
+                converted[i] = (float) regValues[i] / MPU_ACCEL_SENSITIVITY_4G;
                 break;
             case MPU_ACCEL_SCALE_RANGE_8G:
-                values[i] = (float) accelValues[i] / MPU_ACCEL_SENSITIVITY_8G;
+                converted[i] = (float) regValues[i] / MPU_ACCEL_SENSITIVITY_8G;
                 break;
             case MPU_ACCEL_SCALE_RANGE_16G:
-                values[i] = (float) accelValues[i] / MPU_ACCEL_SENSITIVITY_16G;
+                converted[i] = (float) regValues[i] / MPU_ACCEL_SENSITIVITY_16G;
                 break;
         }
     }
 }
 
-void convertTemperatureRegToCelsius(int16_t* regValue, float* actualVal){
+/**
+ * @brief Converts the signed value stored in the MPU register to celsius
+ * 
+ * @param regValue the signed 16 bit int retreived from the register
+ * @param actualVal location to store value in celsius
+ */
+static void convertTemperatureRegToCelsius(int16_t* regValue, float* actualVal){
     *actualVal = (*regValue / 340.0) + 36.53;
 }
 
