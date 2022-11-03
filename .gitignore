@@ -126,4 +126,4 @@ local.properties
 */.vscode/dryrun.log
 MPU-6050-IMU/.vscode/configurationCache.log
 
-build/*
+*/build/*
