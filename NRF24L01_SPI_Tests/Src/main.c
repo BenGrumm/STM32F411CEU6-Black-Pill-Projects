@@ -126,17 +126,13 @@ int main(void)
   {
     printf("Sent - "BYTE_TO_BINARY_PATTERN", Status "BYTE_TO_BINARY_PATTERN"\n", BYTE_TO_BINARY(transmitBuffer[0]), BYTE_TO_BINARY(receiveBuffer[0]));
     HAL_Delay(10);
+
     while(HAL_SPI_GetState(&hspi1) != HAL_SPI_STATE_READY);
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_2, GPIO_PIN_RESET);
-    err = HAL_SPI_Transmit(&hspi1, (uint8_t*)transmitBuffer, 1, 100);
+    err = HAL_SPI_Transmit(&hspi1, transmitBuffer, 1, 100);
+    err = HAL_SPI_Receive(&hspi1, receiveBuffer, 1, 100);
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_2, GPIO_PIN_SET);
-    printf("Transmit err = %d\n", err);
-    HAL_Delay(10);
-    while(HAL_SPI_GetState(&hspi1) != HAL_SPI_STATE_READY);
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_2, GPIO_PIN_RESET);
-    err = HAL_SPI_Receive(&hspi1, (uint8_t*)receiveBuffer, 1, 100);
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_2, GPIO_PIN_SET);
-    printf("Recevice err = %d\n", err);
+
     HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
     HAL_Delay(500);
     /* USER CODE END WHILE */
