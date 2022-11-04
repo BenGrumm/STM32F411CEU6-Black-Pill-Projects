@@ -22,6 +22,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "NRF24L01.h"
 
 /* USER CODE END Includes */
 
@@ -51,11 +52,23 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_SPI1_Init(void);
 /* USER CODE BEGIN PFP */
+extern uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len);
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+#define BYTE_TO_BINARY_PATTERN "%c%c%c%c%c%c%c%c"
+#define BYTE_TO_BINARY(byte)  \
+  (byte & 0x80 ? '1' : '0'), \
+  (byte & 0x40 ? '1' : '0'), \
+  (byte & 0x20 ? '1' : '0'), \
+  (byte & 0x10 ? '1' : '0'), \
+  (byte & 0x08 ? '1' : '0'), \
+  (byte & 0x04 ? '1' : '0'), \
+  (byte & 0x02 ? '1' : '0'), \
+  (byte & 0x01 ? '1' : '0') 
 
 /* USER CODE END 0 */
 
@@ -91,7 +104,19 @@ int main(void)
   MX_USB_DEVICE_Init();
   /* USER CODE BEGIN 2 */
 
-  HAL_SPI_Init(&hspi1);
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_2, GPIO_PIN_SET); // B2 - CSN
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, GPIO_PIN_RESET); // B1 - CE
+
+  HAL_Delay(500);
+
+  HAL_StatusTypeDef err = HAL_SPI_Init(&hspi1);
+
+  uint8_t transmitBuffer[10] = {0};
+  uint8_t receiveBuffer[10] = {0};
+
+  transmitBuffer[0] = (uint8_t) NRF_COMMAND_R_REGISTER | NRF_REG_EN_AA;
+
+  printf("Err = %d\n", err);
 
   /* USER CODE END 2 */
 
@@ -99,6 +124,21 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+    printf("Sent - "BYTE_TO_BINARY_PATTERN", Status "BYTE_TO_BINARY_PATTERN"\n", BYTE_TO_BINARY(transmitBuffer[0]), BYTE_TO_BINARY(receiveBuffer[0]));
+    HAL_Delay(10);
+    while(HAL_SPI_GetState(&hspi1) != HAL_SPI_STATE_READY);
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_2, GPIO_PIN_RESET);
+    err = HAL_SPI_Transmit(&hspi1, (uint8_t*)transmitBuffer, 1, 100);
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_2, GPIO_PIN_SET);
+    printf("Transmit err = %d\n", err);
+    HAL_Delay(10);
+    while(HAL_SPI_GetState(&hspi1) != HAL_SPI_STATE_READY);
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_2, GPIO_PIN_RESET);
+    err = HAL_SPI_Receive(&hspi1, (uint8_t*)receiveBuffer, 1, 100);
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_2, GPIO_PIN_SET);
+    printf("Recevice err = %d\n", err);
+    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+    HAL_Delay(500);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -174,7 +214,7 @@ static void MX_SPI1_Init(void)
   hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi1.Init.NSS = SPI_NSS_SOFT;
-  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_64;
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_128;
   hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
@@ -227,6 +267,13 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+
+int _write(int file, char *ptr, int len)
+{
+    UNUSED(file);
+    CDC_Transmit_FS((uint8_t*)ptr, len);
+    return len;
+}
 
 /* USER CODE END 4 */
 
