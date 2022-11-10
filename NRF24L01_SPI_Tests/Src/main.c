@@ -44,6 +44,7 @@
 SPI_HandleTypeDef hspi1;
 
 /* USER CODE BEGIN PV */
+NRF24L01 nrf;
 
 /* USER CODE END PV */
 
@@ -52,6 +53,8 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_SPI1_Init(void);
 /* USER CODE BEGIN PFP */
+void setCEPin(GPIO_PinState state);
+void setCSNPin(GPIO_PinState state);
 extern uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len);
 
 /* USER CODE END PFP */
@@ -111,12 +114,31 @@ int main(void)
 
   HAL_StatusTypeDef err = HAL_SPI_Init(&hspi1);
 
-  uint8_t transmitBuffer[10] = {0};
   uint8_t receiveBuffer[10] = {0};
+  uint8_t regsToRead[3] = {NRF_REG_CONFIG, NRF_REG_SETUP_AW, NRF_REG_SETUP_RETR};
+  char *strings[3] = {"Config", "Address Width", "Setup Retries"};
+  uint8_t reading = 0;
 
-  transmitBuffer[0] = (uint8_t) NRF_COMMAND_R_REGISTER | NRF_REG_EN_AA;
+  nrf.spiHandler = &hspi1;
+  nrf.NRF_setCEPin = &setCEPin;
+  nrf.NRF_setCSNPin = &setCSNPin;
+  nrf.mode = NRF_MODE_TRANSMITTER;
+  nrf.crcScheme = NRF_CRC_1_BYTE;
+  nrf.enableCRC = true;
+  nrf.enableMaxRtInterrupt = false;
+  nrf.enableRxDrInterrupt = true;
+  nrf.enableTxDsInterrupt = false;
+  nrf.addressWidth = NRF_ADDRES_WIDTH_3_BYTES;
+  nrf.autoRetransmitDelay = 0b1000;
+  nrf.autoRetransmitCount = 0b0100;
 
-  printf("Err = %d\n", err);
+  printf("Begin\n");
+
+  HAL_Delay(100);
+
+  NRF24L01_setup(&nrf);
+
+  uint32_t start = HAL_GetTick();
 
   /* USER CODE END 2 */
 
@@ -124,14 +146,14 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    printf("Sent - "BYTE_TO_BINARY_PATTERN", Status "BYTE_TO_BINARY_PATTERN"\n", BYTE_TO_BINARY(transmitBuffer[0]), BYTE_TO_BINARY(receiveBuffer[0]));
-    HAL_Delay(10);
 
-    while(HAL_SPI_GetState(&hspi1) != HAL_SPI_STATE_READY);
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_2, GPIO_PIN_RESET);
-    err = HAL_SPI_Transmit(&hspi1, transmitBuffer, 1, 100);
-    err = HAL_SPI_Receive(&hspi1, receiveBuffer, 1, 100);
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_2, GPIO_PIN_SET);
+    NRF24L01_readRegister(&nrf, regsToRead[reading], receiveBuffer, 1);
+    printf("%s - "BYTE_TO_BINARY_PATTERN"\n", strings[reading], BYTE_TO_BINARY(receiveBuffer[0]));
+    reading++;
+
+    if(reading > 2){
+      reading = 0;
+    }
 
     HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
     HAL_Delay(500);
@@ -264,11 +286,19 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
+void setCEPin(GPIO_PinState state){
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, state);
+}
+
+void setCSNPin(GPIO_PinState state){
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_2, state);
+}
+
 int _write(int file, char *ptr, int len)
 {
-    UNUSED(file);
-    CDC_Transmit_FS((uint8_t*)ptr, len);
-    return len;
+  UNUSED(file);
+  CDC_Transmit_FS((uint8_t*)ptr, len);
+  return len;
 }
 
 /* USER CODE END 4 */
