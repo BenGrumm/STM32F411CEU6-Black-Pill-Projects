@@ -44,26 +44,36 @@ void NRF24L01_setup(NRF24L01* nrf_device){
     NRF24L01_clearInterrupts(nrf_device);
 }
 
+/**
+ * @brief 
+ * 
+ * @param nrf_device 
+ * @param receiverAddress In order LSByte-MSByte with length of addressWidth set
+ * @param data 
+ * @param dataLen max 32 bytes
+ */
 void NRF24L01_transmit(NRF24L01* nrf_device, uint8_t* receiverAddress, uint8_t* data, uint8_t dataLen){
     // Make sure CE is LOW
     nrf_device->NRF_setCEPin(GPIO_PIN_RESET);
 
     // Write the receivers pipe address in the TX_ADDR register (receivers pipe address and address width must match transmitter settings above)
-    
+    // Write address 3-5 bytes depending on setup (write LSByte-MSByte)
+    // nrf_device->addressWidth; NRF_ADDRES_WIDTH_3_BYTES; NRF_ADDRES_WIDTH_4_BYTES; NRF_ADDRES_WIDTH_5_BYTES;
+    NRF24L01_writeRegister(nrf_device, NRF_REG_TX_ADDR, receiverAddress, (2 + nrf_device->addressWidth));
 
     // Copy the same address from TX_ADDR to Pipe 0 on  RX_ADDR_P0 register  because after transmit the NRF momentarily becomes a receiver 
     //      to listen for the auto ACK and it listens on Pipe 0. Remember the address you are transmitting is at least 3 bytes long depending on the width setting. 
     //      You must write that same amount of bytes in the TX_ADDR register and Pipe 0 address register 
+    NRF24L01_writeRegister(nrf_device, NRF_REG_RX_ADDR_P0, receiverAddress, (2 + nrf_device->addressWidth));
     
     // Send the TX_PAYLOAD command
+    NRF24L01_writeRegister(nrf_device, NRF_COMMAND_W_TX_PAYLOAD, data, dataLen);
     
     // Send the payload data.
-    
     // Drive the CE pin HIGH for a minimum of 10us to start the transmission and then bring it back LOW
-    
-    // Next just handle the TX_DS interrupt or MAX_RT interrupts as you wish. Hopefully you dont get the MAX_RT interrupt because 
-    //      that means the data did not send, meaning there was no auto ACK received. Also if you send payloads too fast you will get a 
-    //      few MAX_RT interrupts because the module is not that fast and it takes time to transmit as well as get a reply.
+    nrf_device->NRF_setCEPin(GPIO_PIN_SET);
+    HAL_Delay(1);
+    nrf_device->NRF_setCEPin(GPIO_PIN_RESET);
 }
 
 void NRF24L01_modifyRegister(NRF24L01* nrf_device, uint8_t regAddr, uint8_t setMask, uint8_t resetMask){

@@ -115,8 +115,9 @@ int main(void)
   HAL_StatusTypeDef err = HAL_SPI_Init(&hspi1);
 
   uint8_t receiveBuffer[10] = {0};
-  uint8_t regsToRead[3] = {NRF_REG_CONFIG, NRF_REG_SETUP_AW, NRF_REG_SETUP_RETR};
-  char *strings[3] = {"Config", "Address Width", "Setup Retries"};
+  uint8_t receiverAddr[5] = {0xAA, 0xAA, 0xAA, 0xAA, 0xAA};
+  uint8_t regsToRead[3] = {NRF_REG_CONFIG, NRF_REG_SETUP_AW, NRF_REG_STATUS};
+  char *strings[3] = {"Config", "Address Width", "Status"};
   uint8_t reading = 0;
 
   nrf.spiHandler = &hspi1;
@@ -125,10 +126,10 @@ int main(void)
   nrf.mode = NRF_MODE_TRANSMITTER;
   nrf.crcScheme = NRF_CRC_1_BYTE;
   nrf.enableCRC = true;
-  nrf.enableMaxRtInterrupt = false;
-  nrf.enableRxDrInterrupt = true;
-  nrf.enableTxDsInterrupt = false;
-  nrf.addressWidth = NRF_ADDRES_WIDTH_3_BYTES;
+  nrf.enableMaxRtInterrupt = true;
+  nrf.enableRxDrInterrupt = false;
+  nrf.enableTxDsInterrupt = true;
+  nrf.addressWidth = NRF_ADDRES_WIDTH_5_BYTES;
   nrf.autoRetransmitDelay = 0b1000;
   nrf.autoRetransmitCount = 0b0100;
 
@@ -139,6 +140,7 @@ int main(void)
   NRF24L01_setup(&nrf);
 
   uint32_t start = HAL_GetTick();
+  NRF24L01_transmit(&nrf, receiverAddr, receiveBuffer, 10);
 
   /* USER CODE END 2 */
 
@@ -149,7 +151,11 @@ int main(void)
 
     NRF24L01_readRegister(&nrf, regsToRead[reading], receiveBuffer, 1);
     printf("%s - "BYTE_TO_BINARY_PATTERN"\n", strings[reading], BYTE_TO_BINARY(receiveBuffer[0]));
+    HAL_Delay(20);
     reading++;
+    NRF24L01_readRegister(&nrf, NRF_REG_TX_ADDR, receiveBuffer, (2 + nrf.addressWidth));
+    printf("TX-ADDR = "BYTE_TO_BINARY_PATTERN"."BYTE_TO_BINARY_PATTERN"."BYTE_TO_BINARY_PATTERN"."BYTE_TO_BINARY_PATTERN"."BYTE_TO_BINARY_PATTERN"\n", 
+          BYTE_TO_BINARY(receiveBuffer[0]), BYTE_TO_BINARY(receiveBuffer[1]), BYTE_TO_BINARY(receiveBuffer[2]), BYTE_TO_BINARY(receiveBuffer[3]), BYTE_TO_BINARY(receiveBuffer[4]));
 
     if(reading > 2){
       reading = 0;
@@ -266,7 +272,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_2, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1|GPIO_PIN_2, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : PC13 */
   GPIO_InitStruct.Pin = GPIO_PIN_13;
@@ -275,16 +281,30 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PB0 PB1 PB2 */
-  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_2;
+  /*Configure GPIO pin : PB0 */
+  GPIO_InitStruct.Pin = GPIO_PIN_0;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : PB1 PB2 */
+  GPIO_InitStruct.Pin = GPIO_PIN_1|GPIO_PIN_2;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI0_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI0_IRQn);
+
 }
 
 /* USER CODE BEGIN 4 */
+
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
+  printf("IRQ\n");
+}
 
 void setCEPin(GPIO_PinState state){
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, state);
