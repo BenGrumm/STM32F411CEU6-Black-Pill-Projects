@@ -17,15 +17,17 @@ typedef struct {
     bool enableDynamicPlWidth;      // true / false
     uint8_t mode;                   // TX Mode or RX Mode
 
-    uint8_t addrByte1;              // low byte will go in RX_ADDR_P#
-    uint32_t addrByte2_5;           // high byte will go in Pipe 1
+    bool interruptTrigger;          // Set when interrupt is triggered by NRF
+    uint8_t data[32];               // Stores data retreived from NRF
 
     //rx settings
-    uint8_t rxPipe;                 // PIPE_1 / PIPE_2 / PIPE_3 .. . .. 
-    uint8_t payloadWidth;           // 1 - 32 
+    uint64_t rx_address;            // address of receiver (max 5 bytes)
+    uint8_t rxPipe;                 // NRF_PIPE_0 - NRF_PIPE_5
+    uint8_t payloadWidth;           // 1 - 32 (bytes)
     bool enableRxDrInterrupt;       // true / false
 
     //tx settings
+    uint64_t tx_address;          // address of transmitter (max 5 bytes)
     bool enableMaxRtInterrupt;      // true / false
     bool enableTxDsInterrupt;       // true / false
     uint8_t autoRetransmitDelay;    // Auto Retransmit Delay ‘0000’ – Wait 250µS ‘0001’ – Wait 500µS ‘0010’ – Wait 750µS …….. ‘1111’ – Wait 4000µS (Delay defined from end of transmission to start of next transmission)
@@ -120,12 +122,21 @@ typedef struct {
 #define NRF_ADDRES_WIDTH_4_BYTES    0b10
 #define NRF_ADDRES_WIDTH_5_BYTES    0b11
 
+#define NRF_PIPE_0              0
+#define NRF_PIPE_1              1
+#define NRF_PIPE_2              2
+#define NRF_PIPE_3              3
+#define NRF_PIPE_4              4
+#define NRF_PIPE_5              5
+
 // Functions
 void NRF24L01_setup(NRF24L01* nrf_device);
+bool NRF24L01_receive(NRF24L01* nrf_device);
 void NRF24L01_modifyRegister(NRF24L01* nrf_device, uint8_t regAddr, uint8_t setMask, uint8_t resetMask);
 void NRF24L01_writeRegister(NRF24L01* nrf_device, uint8_t regAddr, uint8_t* pWriteData, uint8_t len);
 void NRF24L01_readRegister(NRF24L01* nrf_device, uint8_t regAddr, uint8_t* pReadData, uint8_t len);
 void NRF24L01_clearInterrupts(NRF24L01* nrf_device);
 void NRF24L01_transmit(NRF24L01* nrf_device, uint8_t* receiverAddress, uint8_t* data, uint8_t dataLen);
+void NRF24L01_transmitLoop(NRF24L01* nrf_device);
 
 #endif
