@@ -289,6 +289,9 @@ void NRF24L01_transmit(NRF24L01* nrf_device, uint8_t* receiverAddress, uint8_t* 
     // Make sure CE is LOW
     nrf_device->NRF_setCEPin(GPIO_PIN_RESET);
     
+    // Flush the TX payload
+    NRF24L01_flushTX(nrf_device);
+
     // Send the TX_PAYLOAD command
     NRF24L01_writeRegister(nrf_device, NRF_COMMAND_W_TX_PAYLOAD, data, dataLen);
     

@@ -116,21 +116,13 @@ int main(void)
 
   HAL_Delay(500);
 
-  uint8_t receiveBuffer[10] = {0};
-  uint8_t sendCount = 0;
-  uint8_t receiverAddr[5];
-  uint8_t regsToRead[3] = {NRF_REG_CONFIG, NRF_REG_SETUP_AW, NRF_REG_STATUS};
-  char *strings[3] = {"Config", "Address Width", "Status"};
-  sprintf((char*)receiveBuffer, "None\n");
-  uint8_t reading = 0;
-
   // Common
   nrf.spiHandler = &hspi1;
   nrf.rfChannel = 0x7B;
   nrf.NRF_setCEPin = &setCEPin;
   nrf.NRF_setCSNPin = &setCSNPin;
   nrf.crcScheme = NRF_CRC_1_BYTE;
-  nrf.enableCRC = false;
+  nrf.enableCRC = true;
   nrf.addressWidth = NRF_ADDRES_WIDTH_5_BYTES;
   nrf.payloadWidth = 10;
 
@@ -145,6 +137,9 @@ int main(void)
   nrf.autoRetransmitCount = 0b1001;
   nrf.tx_address = 0x28AABBCCDD;
 
+  uint8_t receiveBuffer[10] = {0};
+  uint8_t receiverAddr[5];
+  uint8_t sendCount = 0;
   NRF24L01_getLSBToMSBArray(nrf.tx_address, receiverAddr);
   #endif
 
