@@ -33,7 +33,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define RECEIVER
+#undef RECEIVER
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -112,13 +112,13 @@ int main(void)
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_2, GPIO_PIN_SET); // B2 - CSN
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, GPIO_PIN_RESET); // B1 - CE
 
-  HAL_Delay(500);
-
   HAL_StatusTypeDef err = HAL_SPI_Init(&hspi1);
+
+  HAL_Delay(500);
 
   uint8_t receiveBuffer[10] = {0};
   uint8_t sendCount = 0;
-  uint8_t receiverAddr[5] = {0xAA, 0xAA, 0xAA, 0xAA, 0xAA};
+  uint8_t receiverAddr[5];
   uint8_t regsToRead[3] = {NRF_REG_CONFIG, NRF_REG_SETUP_AW, NRF_REG_STATUS};
   char *strings[3] = {"Config", "Address Width", "Status"};
   sprintf((char*)receiveBuffer, "None\n");
@@ -126,7 +126,7 @@ int main(void)
 
   // Common
   nrf.spiHandler = &hspi1;
-  nrf.rfChannel = 100;
+  nrf.rfChannel = 0x7B;
   nrf.NRF_setCEPin = &setCEPin;
   nrf.NRF_setCSNPin = &setCSNPin;
   nrf.crcScheme = NRF_CRC_1_BYTE;
@@ -136,24 +136,28 @@ int main(void)
 
   // For transmitter
   #ifndef RECEIVER
+  printf("Transmiter\n");
   nrf.mode = NRF_MODE_TRANSMITTER;
   nrf.enableMaxRtInterrupt = true;
   nrf.enableRxDrInterrupt = true;
   nrf.enableTxDsInterrupt = true;
-  nrf.autoRetransmitDelay = 0x2F;
-  nrf.autoRetransmitCount = 0x2F;
-  nrf.tx_address = 0xFFFFFFFFFF;
+  nrf.autoRetransmitDelay = 0b0110;
+  nrf.autoRetransmitCount = 0b1001;
+  nrf.tx_address = 0x28AABBCCDD;
+
+  NRF24L01_getLSBToMSBArray(nrf.tx_address, receiverAddr);
   #endif
 
   // For receiver
   #ifdef RECEIVER
-  nrf.rxPipe = NRF_PIPE_3;
+  printf("Receiver\n");
+  nrf.rxPipe = NRF_PIPE_0;
   nrf.mode = NRF_MODE_RECEIVER;
   nrf.enableMaxRtInterrupt = true;
   nrf.enableRxDrInterrupt = true;
   nrf.enableTxDsInterrupt = true;
-  nrf.rx_address = 0xFFFFFFFFFF;
-  #endif 
+  nrf.rx_address = 0x28AABBCCDD;
+  #endif
 
   HAL_Delay(5000);
 
@@ -161,13 +165,14 @@ int main(void)
 
   HAL_Delay(100);
 
-  printf("Setup\n");
-
   uint32_t start = HAL_GetTick();
 
   #ifdef RECEIVER
-  // Start listening
+  // Start listening (Set CE high)
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, GPIO_PIN_SET);
+  #else
+  sprintf((char*)receiveBuffer, "RX: %d\n", sendCount++);
+  NRF24L01_transmit(&nrf, receiverAddr, receiveBuffer, 10);
   #endif
 
   /* USER CODE END 2 */
@@ -176,24 +181,23 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    // NRF24L01_readRegister(&nrf, regsToRead[reading], receiveBuffer, 1);
-    // printf("%s - "BYTE_TO_BINARY_PATTERN"\n", strings[reading], BYTE_TO_BINARY(receiveBuffer[0]));
-    // HAL_Delay(20);
-    // reading++;
-    // NRF24L01_readRegister(&nrf, NRF_REG_TX_ADDR, receiveBuffer, (2 + nrf.addressWidth));
     // printAddrRegs();
-
-    // if(reading > 3){
-    //   reading = 0;
-    // }
 
     #ifdef RECEIVER
     NRF24L01_receive(&nrf);
     printf((char*)nrf.data);
     #else
-    sprintf((char*)receiveBuffer, "RX: %d\n", sendCount++);
-    NRF24L01_transmit(&nrf, receiverAddr, receiveBuffer, 10);
-    NRF24L01_transmitLoop(&nrf);
+
+    if(nrf.interruptTrigger){
+      NRF24L01_clearInterrupts(&nrf);
+
+      printf("Sending: %x:%x:%x:%x:%x\n", receiverAddr[0], receiverAddr[1], receiverAddr[2], receiverAddr[3], receiverAddr[4]);
+
+      sprintf((char*)receiveBuffer, "RX: %d\n", sendCount++);
+      NRF24L01_transmit(&nrf, receiverAddr, receiveBuffer, 10);
+    }
+
+    // NRF24L01_transmitLoop(&nrf);
     #endif
 
     HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
@@ -340,24 +344,22 @@ static void MX_GPIO_Init(void)
 void printAddrRegs(){
   uint8_t receiveBuffer[32];
   NRF24L01_readRegister(&nrf, NRF_REG_RX_ADDR_P0, receiveBuffer, 5);
-  printf("ADDR 0 = "BYTE_TO_BINARY_PATTERN"."BYTE_TO_BINARY_PATTERN"."BYTE_TO_BINARY_PATTERN"."BYTE_TO_BINARY_PATTERN"."BYTE_TO_BINARY_PATTERN"\n", 
-        BYTE_TO_BINARY(receiveBuffer[0]), BYTE_TO_BINARY(receiveBuffer[1]), BYTE_TO_BINARY(receiveBuffer[2]), BYTE_TO_BINARY(receiveBuffer[3]), BYTE_TO_BINARY(receiveBuffer[4]));
+  printf("ADDR 0 = %x:%x:%x:%x:%x\n", receiveBuffer[0], receiveBuffer[1], receiveBuffer[2], receiveBuffer[3], receiveBuffer[4]);
   HAL_Delay(50);
   NRF24L01_readRegister(&nrf, NRF_REG_RX_ADDR_P1, receiveBuffer, 5);
-  printf("ADDR 1 = "BYTE_TO_BINARY_PATTERN"."BYTE_TO_BINARY_PATTERN"."BYTE_TO_BINARY_PATTERN"."BYTE_TO_BINARY_PATTERN"."BYTE_TO_BINARY_PATTERN"\n", 
-        BYTE_TO_BINARY(receiveBuffer[0]), BYTE_TO_BINARY(receiveBuffer[1]), BYTE_TO_BINARY(receiveBuffer[2]), BYTE_TO_BINARY(receiveBuffer[3]), BYTE_TO_BINARY(receiveBuffer[4]));
+  printf("ADDR 1 = %x:%x:%x:%x:%x\n", receiveBuffer[0], receiveBuffer[1], receiveBuffer[2], receiveBuffer[3], receiveBuffer[4]);
   HAL_Delay(50);
   NRF24L01_readRegister(&nrf, NRF_REG_RX_ADDR_P2, receiveBuffer, 1);
-  printf("ADDR 2 = "BYTE_TO_BINARY_PATTERN"\n", BYTE_TO_BINARY(receiveBuffer[0]));
+  printf("ADDR 2 = %x\n", receiveBuffer[0]);
   HAL_Delay(50);
   NRF24L01_readRegister(&nrf, NRF_REG_RX_ADDR_P3, receiveBuffer, 1);
-  printf("ADDR 3 = "BYTE_TO_BINARY_PATTERN"\n", BYTE_TO_BINARY(receiveBuffer[0]));
+  printf("ADDR 3 = %x\n", receiveBuffer[0]);
   HAL_Delay(50);
   NRF24L01_readRegister(&nrf, NRF_REG_RX_ADDR_P4, receiveBuffer, 1);
-  printf("ADDR 4 = "BYTE_TO_BINARY_PATTERN"\n", BYTE_TO_BINARY(receiveBuffer[0]));
+  printf("ADDR 4 = %x\n", receiveBuffer[0]);
   HAL_Delay(50);
   NRF24L01_readRegister(&nrf, NRF_REG_RX_ADDR_P5, receiveBuffer, 1);
-  printf("ADDR 5 = "BYTE_TO_BINARY_PATTERN"\n", BYTE_TO_BINARY(receiveBuffer[0]));
+  printf("ADDR 5 = %x\n", receiveBuffer[0]);
   HAL_Delay(50);
   NRF24L01_readRegister(&nrf, NRF_REG_RX_PW_P0, receiveBuffer, 1);
   printf("PW 0 = "BYTE_TO_BINARY_PATTERN"\n", BYTE_TO_BINARY(receiveBuffer[0]));
@@ -378,8 +380,7 @@ void printAddrRegs(){
   printf("PW 5 = "BYTE_TO_BINARY_PATTERN"\n", BYTE_TO_BINARY(receiveBuffer[0]));
   HAL_Delay(50);
   NRF24L01_readRegister(&nrf, NRF_REG_TX_ADDR, receiveBuffer, 5);
-  printf("TX ADDR = "BYTE_TO_BINARY_PATTERN"."BYTE_TO_BINARY_PATTERN"."BYTE_TO_BINARY_PATTERN"."BYTE_TO_BINARY_PATTERN"."BYTE_TO_BINARY_PATTERN"\n", 
-        BYTE_TO_BINARY(receiveBuffer[0]), BYTE_TO_BINARY(receiveBuffer[1]), BYTE_TO_BINARY(receiveBuffer[2]), BYTE_TO_BINARY(receiveBuffer[3]), BYTE_TO_BINARY(receiveBuffer[4]));
+  printf("TX Addr = %x:%x:%x:%x:%x\n", receiveBuffer[0], receiveBuffer[1], receiveBuffer[2], receiveBuffer[3], receiveBuffer[4]);
   HAL_Delay(50);
 }
 

@@ -138,5 +138,6 @@ void NRF24L01_readRegister(NRF24L01* nrf_device, uint8_t regAddr, uint8_t* pRead
 void NRF24L01_clearInterrupts(NRF24L01* nrf_device);
 void NRF24L01_transmit(NRF24L01* nrf_device, uint8_t* receiverAddress, uint8_t* data, uint8_t dataLen);
 void NRF24L01_transmitLoop(NRF24L01* nrf_device);
+void NRF24L01_getLSBToMSBArray(uint64_t valueToConvert, uint8_t* destination);
 
 #endif

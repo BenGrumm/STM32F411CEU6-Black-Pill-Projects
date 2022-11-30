@@ -1,9 +1,12 @@
 #include "NRF24L01.h"
 #include <stdio.h>
 
-void NRF24L01_getLSBToMSBArray(uint64_t valueToConvert, uint8_t* destination);
 void NRF24L01_writeTransmitAddress(NRF24L01* nrf_device);
 void NRF24L01_writeReceiveAddress(NRF24L01* nrf_device);
+void NRF24L01_transmitCommand(NRF24L01* nrf_device, uint8_t command);
+void NRF24L01_flushTX(NRF24L01* nrf_device);
+void NRF24L01_flushRX(NRF24L01* nrf_device);
+void NRF24L01_resetAllRegs(NRF24L01* nrf_device);
 
 // TODO Remove after debug
 #define BYTE_TO_BINARY_PATTERN "%c%c%c%c%c%c%c%c"
@@ -25,6 +28,7 @@ void NRF24L01_setup(NRF24L01* nrf_device){
 
     // Ensure chip enable is off and then power up
     nrf_device->NRF_setCEPin(GPIO_PIN_RESET);
+    NRF24L01_resetAllRegs(nrf_device);
     NRF24L01_modifyRegister(nrf_device, NRF_REG_CONFIG, NRF_MASK_CONFIG_PWR_UP, 0);
 
     HAL_Delay(100);
@@ -32,7 +36,7 @@ void NRF24L01_setup(NRF24L01* nrf_device){
     // Set the encoding scheme for CRC then enable it
     tempReg = nrf_device->crcScheme << NRF_CONFIG_CRCO;
     NRF24L01_modifyRegister(nrf_device, NRF_REG_CONFIG, tempReg, tempReg ^ (1 << NRF_CONFIG_CRCO));
-    NRF24L01_modifyRegister(nrf_device, NRF_REG_CONFIG, NRF_MASK_CONFIG_EN_CRC, 0); // Not needed as reset 1 and will force enable with auto ack
+    NRF24L01_modifyRegister(nrf_device, NRF_REG_CONFIG, nrf_device->enableCRC << NRF_CONFIG_EN_CRC, !(nrf_device->enableCRC) << NRF_CONFIG_EN_CRC);
 
     // Set up the interrupts
     tempReg |= (!nrf_device->enableMaxRtInterrupt) << NRF_CONFIG_MASK_MAX_RT;
@@ -51,6 +55,8 @@ void NRF24L01_setup(NRF24L01* nrf_device){
     tempReg = 0;
     NRF24L01_writeRegister(nrf_device, NRF_REG_EN_AA, &tempReg, 1);
 
+    NRF24L01_clearInterrupts(nrf_device);
+
     // Set address width - Illegal to have 00 in address width reg
     if(nrf_device->addressWidth != 0){
         // Ensure the address width is valid then write to the reg
@@ -58,21 +64,6 @@ void NRF24L01_setup(NRF24L01* nrf_device){
         NRF24L01_writeRegister(nrf_device, NRF_REG_SETUP_AW, &nrf_device->addressWidth, 1);
     }
 
-    if(nrf_device->mode == NRF_MODE_TRANSMITTER){
-        // Configure as transmitter
-        NRF24L01_modifyRegister(nrf_device, NRF_REG_CONFIG, 0, NRF_MASK_CONFIG_PRIM_RX);
-
-        // Set up tx address
-        NRF24L01_writeTransmitAddress(nrf_device);
-
-        // Set up SETUP_RETR for automatic retry and wait time
-        tempReg = 0;
-        tempReg |= (0b1111 & nrf_device->autoRetransmitDelay) << NRF_SETUP_RETR_ARD;
-        tempReg |= (0b1111 & nrf_device->autoRetransmitCount) << NRF_SETUP_RETR_ARC;
-        NRF24L01_writeRegister(nrf_device, NRF_REG_SETUP_RETR, &tempReg, 1);
-
-    }
-    
     if(nrf_device->mode == NRF_MODE_RECEIVER){
         // Configure as receiver
         NRF24L01_modifyRegister(nrf_device, NRF_REG_CONFIG, NRF_MASK_CONFIG_PRIM_RX, 0);
@@ -80,7 +71,7 @@ void NRF24L01_setup(NRF24L01* nrf_device){
         // Enable the pipe being used
         tempReg = 0;
         tempReg |= 1 << nrf_device->rxPipe;
-        NRF24L01_modifyRegister(nrf_device, NRF_REG_EN_RXADDR, tempReg, 0);
+        NRF24L01_writeRegister(nrf_device, NRF_REG_EN_RXADDR, &tempReg, 1);
 
         tempReg |= 1 << NRF_PIPE_1;
         // Also enable auto ack on that pipe and pipe 1
@@ -94,6 +85,23 @@ void NRF24L01_setup(NRF24L01* nrf_device){
         // Write the payload width
         NRF24L01_writeRegister(nrf_device, NRF_REG_RX_PW_P0 + nrf_device->rxPipe, &nrf_device->payloadWidth, 1);
     }
+
+    if(nrf_device->mode == NRF_MODE_TRANSMITTER){
+        // Configure as transmitter
+        NRF24L01_modifyRegister(nrf_device, NRF_REG_CONFIG, 0, NRF_MASK_CONFIG_PRIM_RX);
+
+        // Set up SETUP_RETR for automatic retry and wait time
+        tempReg = 0;
+        tempReg |= (0b1111 & nrf_device->autoRetransmitDelay) << NRF_SETUP_RETR_ARD;
+        tempReg |= (0b1111 & nrf_device->autoRetransmitCount) << NRF_SETUP_RETR_ARC;
+        NRF24L01_modifyRegister(nrf_device, NRF_REG_SETUP_RETR, tempReg, ~tempReg);
+
+        // Set up tx address
+        NRF24L01_writeTransmitAddress(nrf_device);
+    }
+    
+    NRF24L01_flushRX(nrf_device);
+    NRF24L01_flushTX(nrf_device);
 
     NRF24L01_clearInterrupts(nrf_device);
 
@@ -133,6 +141,34 @@ void NRF24L01_setup(NRF24L01* nrf_device){
     NRF24L01_readRegister(nrf_device, NRF_REG_SETUP_RETR, &tempReg, 1);
     printf("RETR - "BYTE_TO_BINARY_PATTERN"\n", BYTE_TO_BINARY(tempReg));
     HAL_Delay(100);
+}
+
+void NRF24L01_resetAllRegs(NRF24L01* nrf_device){
+    uint8_t writeBuffer;
+
+    writeBuffer = 0x08;
+    NRF24L01_writeRegister(nrf_device, NRF_REG_CONFIG, &writeBuffer, 1);
+    writeBuffer = 0x3F;
+    NRF24L01_writeRegister(nrf_device, NRF_REG_EN_AA, &writeBuffer, 1);
+    writeBuffer = 0x03;
+    NRF24L01_writeRegister(nrf_device, NRF_REG_EN_RXADDR, &writeBuffer, 1);
+    NRF24L01_writeRegister(nrf_device, NRF_REG_SETUP_AW, &writeBuffer, 1);
+    writeBuffer = 0x02;
+    NRF24L01_writeRegister(nrf_device, NRF_REG_RF_CH, &writeBuffer, 1);
+    writeBuffer = 0x02;
+    NRF24L01_writeRegister(nrf_device, NRF_REG_RF_CH, &writeBuffer, 1);
+    writeBuffer = 0x0E;
+    NRF24L01_writeRegister(nrf_device, NRF_REG_RF_SETUP, &writeBuffer, 1);
+    writeBuffer = 0x00;
+    NRF24L01_writeRegister(nrf_device, NRF_REG_STATUS, &writeBuffer, 1);
+    NRF24L01_writeRegister(nrf_device, NRF_REG_RX_PW_P0, &writeBuffer, 1);
+    NRF24L01_writeRegister(nrf_device, NRF_REG_RX_PW_P1, &writeBuffer, 1);
+    NRF24L01_writeRegister(nrf_device, NRF_REG_RX_PW_P2, &writeBuffer, 1);
+    NRF24L01_writeRegister(nrf_device, NRF_REG_RX_PW_P3, &writeBuffer, 1);
+    NRF24L01_writeRegister(nrf_device, NRF_REG_RX_PW_P4, &writeBuffer, 1);
+    NRF24L01_writeRegister(nrf_device, NRF_REG_RX_PW_P5, &writeBuffer, 1);
+    NRF24L01_writeRegister(nrf_device, NRF_REG_DYNPD, &writeBuffer, 1);
+    NRF24L01_writeRegister(nrf_device, NRF_REG_FEATURE, &writeBuffer, 1);
 }
 
 void NRF24L01_writeTransmitAddress(NRF24L01* nrf_device){
@@ -267,6 +303,18 @@ void NRF24L01_startListening(NRF24L01* nrf_device){
     // Set CE high
     nrf_device->NRF_setCEPin(GPIO_PIN_SET);
     // Wait for interrupt
+}
+
+void NRF24L01_flushRX(NRF24L01* nrf_device){
+    NRF24L01_transmitCommand(nrf_device, NRF_COMMAND_FLUSH_RX);
+}
+
+void NRF24L01_flushTX(NRF24L01* nrf_device){
+    NRF24L01_transmitCommand(nrf_device, NRF_COMMAND_FLUSH_TX);
+}
+
+void NRF24L01_transmitCommand(NRF24L01* nrf_device, uint8_t command){
+    HAL_SPI_Transmit(nrf_device->spiHandler, &command, 1, 100);
 }
 
 void NRF24L01_modifyRegister(NRF24L01* nrf_device, uint8_t regAddr, uint8_t setMask, uint8_t resetMask){
