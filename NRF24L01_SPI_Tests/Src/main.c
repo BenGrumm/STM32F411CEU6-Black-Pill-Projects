@@ -33,7 +33,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#undef RECEIVER
+#define RECEIVER
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -125,6 +125,7 @@ int main(void)
   nrf.enableCRC = true;
   nrf.addressWidth = NRF_ADDRES_WIDTH_5_BYTES;
   nrf.payloadWidth = 10;
+  nrf.transmitSpeed = NRF_SPEED_250Kbps;
 
   // For transmitter
   #ifndef RECEIVER
@@ -177,6 +178,10 @@ int main(void)
   while (1)
   {
     // printAddrRegs();
+
+    NRF24L01_readRegister(&nrf, NRF_REG_STATUS, &nrf.status, 1);
+    printf("Status - "BYTE_TO_BINARY_PATTERN"\n", BYTE_TO_BINARY(nrf.status));
+    HAL_Delay(50);
 
     #ifdef RECEIVER
     NRF24L01_receive(&nrf);

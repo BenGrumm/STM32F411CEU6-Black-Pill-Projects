@@ -16,6 +16,7 @@ typedef struct {
     uint8_t addressWidth;           // THREE_BYTES / FOUR_BYTES / FIVE_BYTES
     bool enableDynamicPlWidth;      // true / false
     uint8_t mode;                   // TX Mode or RX Mode
+    uint8_t transmitSpeed;          // 
 
     bool interruptTrigger;          // Set when interrupt is triggered by NRF
     uint8_t data[32];               // Stores data retreived from NRF
@@ -96,6 +97,12 @@ typedef struct {
 #define NRF_STATUS_RX_P_NO      1 // Data pipe number for the payload available for reading from RX_FIFO 000-101: Data Pipe Number 110: Not Used 111: RX FIFO Empty
 #define NRF_STATUS_TX_FULL      0 // TX FIFO full flag. 1: TX FIFO full. 0: Available locations in TX FIFO
 
+#define NRF_RF_SETUP_CONT_WAVE  7 // Enables continuous carrier transmit when high.
+#define NRF_RF_SETUP_RF_DR_LOW  5 // Set RF Data Rate to 250kbps. See RF_DR_HIGH for encoding.
+#define NRF_RF_SETUP_PLL_LOCK   4 // Force PLL lock signal. Only used in test
+#define NRF_RF_SETUP_RF_DR_HIGH 3 // Select between the high speed data rates. This bit is don’t care if RF_DR_LOW is set
+#define NRF_RF_SETUP_RF_PWR     1 // Set RF output power in TX mode
+
 // Register Masks
 #define NRF_MASK_CONFIG_MASK_RX_DR   (1 << NRF_CONFIG_MASK_RX_DR) // Mask interrupt caused by RX_DR 1: Interrupt not reflected on the IRQ pin 0: Reflect RX_DR as active low interrupt on the IRQ pin
 #define NRF_MASK_CONFIG_MASK_TX_DS   (1 << NRF_CONFIG_MASK_TX_DS) // Mask interrupt caused by TX_DS 1: Interrupt not reflected on the IRQ pin 0: Reflect TX_DS as active low interrupt on the IRQ pin
@@ -128,6 +135,10 @@ typedef struct {
 #define NRF_PIPE_3              3
 #define NRF_PIPE_4              4
 #define NRF_PIPE_5              5
+
+#define NRF_SPEED_1Mbps         0b00
+#define NRF_SPEED_2Mbps         0b01
+#define NRF_SPEED_250Kbps       0b10
 
 // Functions
 void NRF24L01_setup(NRF24L01* nrf_device);

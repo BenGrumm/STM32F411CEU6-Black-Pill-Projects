@@ -55,6 +55,10 @@ void NRF24L01_setup(NRF24L01* nrf_device){
     tempReg = 0;
     NRF24L01_writeRegister(nrf_device, NRF_REG_EN_AA, &tempReg, 1);
 
+    tempReg = (nrf_device->transmitSpeed & 0b10) << (NRF_RF_SETUP_RF_DR_LOW - 1);
+    tempReg |= (nrf_device->transmitSpeed & 0b1) << NRF_RF_SETUP_RF_DR_HIGH;
+    NRF24L01_modifyRegister(nrf_device, NRF_REG_RF_SETUP, tempReg, tempReg ^ (1 << NRF_RF_SETUP_RF_DR_LOW | 1 << NRF_RF_SETUP_RF_DR_HIGH));
+
     NRF24L01_clearInterrupts(nrf_device);
 
     // Set address width - Illegal to have 00 in address width reg
@@ -140,6 +144,11 @@ void NRF24L01_setup(NRF24L01* nrf_device){
     // DEBUG TODO REMOVE
     NRF24L01_readRegister(nrf_device, NRF_REG_SETUP_RETR, &tempReg, 1);
     printf("RETR - "BYTE_TO_BINARY_PATTERN"\n", BYTE_TO_BINARY(tempReg));
+    HAL_Delay(100);
+
+    // DEBUG TODO REMOVE
+    NRF24L01_readRegister(nrf_device, NRF_REG_RF_SETUP, &tempReg, 1);
+    printf("RF Setup - "BYTE_TO_BINARY_PATTERN"\n", BYTE_TO_BINARY(tempReg));
     HAL_Delay(100);
 }
 
