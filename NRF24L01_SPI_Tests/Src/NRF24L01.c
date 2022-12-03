@@ -24,7 +24,7 @@ void NRF24L01_setup(NRF24L01* nrf_device){
     uint8_t tempReg = 0;
 
     nrf_device->interruptTrigger = false;
-    sprintf((char*)nrf_device->data, "Null\n");
+    sprintf((char*)nrf_device->data, "No Data\n");
 
     // Ensure chip enable is off and then power up
     nrf_device->NRF_setCEPin(GPIO_PIN_RESET);
@@ -248,12 +248,11 @@ void NRF24L01_getLSBToMSBArray(uint64_t valueToConvert, uint8_t* destination){
 }
 
 bool NRF24L01_receive(NRF24L01* nrf_device){
-    uint8_t temp = NRF_COMMAND_NOP;
 
     // If using interrupts and interrupt received or not using interrupts
     if((nrf_device->enableRxDrInterrupt && nrf_device->interruptTrigger) || !nrf_device->enableRxDrInterrupt){
         // Check for RX flag
-        HAL_SPI_TransmitReceive(nrf_device->spiHandler, &temp, &nrf_device->status, 1, 100);
+        NRF24L01_readRegister(nrf_device, NRF_REG_STATUS, &nrf_device->status, 1);
         if(!(nrf_device->status & NRF_MASK_STATUS_RX_DR)){
             // RX flag not set so return false no data
             return false;

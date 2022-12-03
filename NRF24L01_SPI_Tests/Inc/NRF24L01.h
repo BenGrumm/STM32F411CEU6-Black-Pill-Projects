@@ -19,7 +19,7 @@ typedef struct {
     uint8_t transmitSpeed;          // 
 
     bool interruptTrigger;          // Set when interrupt is triggered by NRF
-    uint8_t data[32];               // Stores data retreived from NRF
+    volatile uint8_t data[32];      // Stores data received
 
     //rx settings
     uint64_t rx_address;            // address of receiver (max 5 bytes)

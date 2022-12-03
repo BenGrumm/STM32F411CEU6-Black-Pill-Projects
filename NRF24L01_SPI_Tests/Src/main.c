@@ -183,17 +183,23 @@ int main(void)
     printf("Status - "BYTE_TO_BINARY_PATTERN"\n", BYTE_TO_BINARY(nrf.status));
     HAL_Delay(50);
 
+    if(nrf.interruptTrigger){
+      printf("Interrupt Flag Set\n");
+      HAL_Delay(50);
+    }
+
     #ifdef RECEIVER
+
     NRF24L01_receive(&nrf);
-    printf((char*)nrf.data);
+    printf("Val = %s", (volatile char*)nrf.data);
     #else
 
     if(nrf.interruptTrigger){
       NRF24L01_clearInterrupts(&nrf);
 
-      printf("Sending: %x:%x:%x:%x:%x\n", receiverAddr[0], receiverAddr[1], receiverAddr[2], receiverAddr[3], receiverAddr[4]);
-
       sprintf((char*)receiveBuffer, "RX: %d\n", sendCount++);
+      printf("Sending: %x:%x:%x:%x:%x - %s\n", receiverAddr[0], receiverAddr[1], receiverAddr[2], receiverAddr[3], receiverAddr[4], receiveBuffer);
+
       NRF24L01_transmit(&nrf, receiverAddr, receiveBuffer, 10);
     }
 
