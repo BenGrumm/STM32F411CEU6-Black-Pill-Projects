@@ -33,7 +33,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define RECEIVER
+#undef RECEIVER
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -123,7 +123,7 @@ int main(void)
   nrf.NRF_setCSNPin = &setCSNPin;
   nrf.crcScheme = NRF_CRC_1_BYTE;
   nrf.enableCRC = true;
-  nrf.enableAutoAck = false;
+  nrf.enableAutoAck = true;
   nrf.addressWidth = NRF_ADDRES_WIDTH_5_BYTES;
   nrf.payloadWidth = 10;
   nrf.transmitSpeed = NRF_SPEED_2Mbps;
@@ -170,6 +170,7 @@ int main(void)
   #else
   sprintf((char*)receiveBuffer, "RX: %d\n", sendCount++);
   NRF24L01_transmit(&nrf, receiverAddr, receiveBuffer, 10);
+  uint32_t sendTime = HAL_GetTick();
   #endif
 
   /* USER CODE END 2 */
@@ -190,25 +191,37 @@ int main(void)
     }
 
     #ifdef RECEIVER
-
-    NRF24L01_receive(&nrf);
-    printf("Val = %s", (volatile char*)nrf.data);
+    if(NRF24L01_receive(&nrf)){
+      printf("Val = %s", (volatile char*)nrf.data);
+    }
     #else
 
     if(nrf.interruptTrigger){
+      uint8_t status = 0;
+      NRF24L01_readRegister(&nrf, NRF_REG_STATUS, &status, 1);
+
       NRF24L01_clearInterrupts(&nrf);
+      nrf.interruptTrigger = false;
 
-      sprintf((char*)receiveBuffer, "RX: %d\n", sendCount++);
-      printf("Sending: %x:%x:%x:%x:%x - %s\n", receiverAddr[0], receiverAddr[1], receiverAddr[2], receiverAddr[3], receiverAddr[4], receiveBuffer);
+      if(status & NRF_MASK_STATUS_TX_DS || status & NRF_MASK_STATUS_MAX_RT){
+        sprintf((char*)receiveBuffer, "RX: %d\n", sendCount);
+        if(status & NRF_MASK_STATUS_TX_DS){
+          sendCount++;
+        }
+        printf("Sending: %x:%x:%x:%x:%x - %s - Time = %ld\n", receiverAddr[0], receiverAddr[1], receiverAddr[2], receiverAddr[3], receiverAddr[4], receiveBuffer, HAL_GetTick() - sendTime);
+        sendTime = HAL_GetTick();
 
-      NRF24L01_transmit(&nrf, receiverAddr, receiveBuffer, 10);
+        NRF24L01_transmit(&nrf, receiverAddr, receiveBuffer, 10);
+      }
     }
 
     // NRF24L01_transmitLoop(&nrf);
     #endif
 
-    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
-    HAL_Delay(500);
+    if(HAL_GetTick() - start > 500){
+      HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+      start = HAL_GetTick();
+    }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */

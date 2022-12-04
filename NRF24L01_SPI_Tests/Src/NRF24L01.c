@@ -79,7 +79,7 @@ void NRF24L01_setup(NRF24L01* nrf_device){
         NRF24L01_writeRegister(nrf_device, NRF_REG_EN_RXADDR, &tempReg, 1);
 
         if(nrf_device->enableAutoAck){
-            tempReg |= 1 << NRF_PIPE_0;
+            tempReg |= 1 << NRF_PIPE_1;
             // Enable auto ack on chosen pipe and pipe 1
             NRF24L01_modifyRegister(nrf_device, NRF_REG_EN_AA, tempReg, 0);
         }
@@ -193,6 +193,9 @@ void NRF24L01_writeTransmitAddress(NRF24L01* nrf_device){
     NRF24L01_writeRegister(nrf_device, NRF_REG_TX_ADDR, lsbToMSBConversion, (2 + nrf_device->addressWidth));
 
     if(nrf_device->enableAutoAck){
+        // Enable auto ack on pipe 0
+        NRF24L01_modifyRegister(nrf_device, NRF_REG_EN_AA, (1 << NRF_PIPE_0), 0);
+
         // Copy the same address from TX_ADDR to Pipe 0 on  RX_ADDR_P0 register  because after transmit the NRF momentarily becomes a receiver 
         //      to listen for the auto ACK and it listens on Pipe 0. Remember the address you are transmitting is at least 3 bytes long depending on the width setting. 
         //      You must write that same amount of bytes in the TX_ADDR register and Pipe 0 address register 
@@ -277,7 +280,11 @@ bool NRF24L01_receive(NRF24L01* nrf_device){
 
         // Start listening again?
         nrf_device->NRF_setCEPin(GPIO_PIN_SET);
+
+        return true;
     }
+
+    return false;
 }
 
 void NRF24L01_transmitLoop(NRF24L01* nrf_device){
