@@ -55,7 +55,8 @@ void NRF24L01_setup(NRF24L01* nrf_device){
     tempReg = 0;
     NRF24L01_writeRegister(nrf_device, NRF_REG_EN_AA, &tempReg, 1);
 
-    tempReg = (nrf_device->transmitSpeed & 0b10) << (NRF_RF_SETUP_RF_DR_LOW - 1);
+    // Set transmit speed (high and low registers and seperated in memory each 1 bit)
+    tempReg = (nrf_device->transmitSpeed & 0b10) << (NRF_RF_SETUP_RF_DR_LOW - 1); // - 1 as already bit position 1 not 0
     tempReg |= (nrf_device->transmitSpeed & 0b1) << NRF_RF_SETUP_RF_DR_HIGH;
     NRF24L01_modifyRegister(nrf_device, NRF_REG_RF_SETUP, tempReg, tempReg ^ (1 << NRF_RF_SETUP_RF_DR_LOW | 1 << NRF_RF_SETUP_RF_DR_HIGH));
 
@@ -77,9 +78,11 @@ void NRF24L01_setup(NRF24L01* nrf_device){
         tempReg |= 1 << nrf_device->rxPipe;
         NRF24L01_writeRegister(nrf_device, NRF_REG_EN_RXADDR, &tempReg, 1);
 
-        tempReg |= 1 << NRF_PIPE_1;
-        // Also enable auto ack on that pipe and pipe 1
-        // NRF24L01_modifyRegister(nrf_device, NRF_REG_EN_AA, tempReg, 0);
+        if(nrf_device->enableAutoAck){
+            tempReg |= 1 << NRF_PIPE_0;
+            // Enable auto ack on chosen pipe and pipe 1
+            NRF24L01_modifyRegister(nrf_device, NRF_REG_EN_AA, tempReg, 0);
+        }
 
         // First 2 bits in payload width are reserved so ensure 0
         nrf_device->payloadWidth &= 0b00111111;
@@ -123,7 +126,6 @@ void NRF24L01_setup(NRF24L01* nrf_device){
     NRF24L01_readRegister(nrf_device, NRF_REG_SETUP_AW, &tempReg, 1);
     printf("AW - "BYTE_TO_BINARY_PATTERN"\n", BYTE_TO_BINARY(tempReg));
     HAL_Delay(100);
-    fflush(stdout);
 
     // DEBUG TODO REMOVE
     NRF24L01_readRegister(nrf_device, NRF_REG_EN_AA, &tempReg, 1);
@@ -190,10 +192,12 @@ void NRF24L01_writeTransmitAddress(NRF24L01* nrf_device){
     // nrf_device->addressWidth; NRF_ADDRES_WIDTH_3_BYTES; NRF_ADDRES_WIDTH_4_BYTES; NRF_ADDRES_WIDTH_5_BYTES;
     NRF24L01_writeRegister(nrf_device, NRF_REG_TX_ADDR, lsbToMSBConversion, (2 + nrf_device->addressWidth));
 
-    // Copy the same address from TX_ADDR to Pipe 0 on  RX_ADDR_P0 register  because after transmit the NRF momentarily becomes a receiver 
-    //      to listen for the auto ACK and it listens on Pipe 0. Remember the address you are transmitting is at least 3 bytes long depending on the width setting. 
-    //      You must write that same amount of bytes in the TX_ADDR register and Pipe 0 address register 
-    NRF24L01_writeRegister(nrf_device, NRF_REG_RX_ADDR_P0, lsbToMSBConversion, (2 + nrf_device->addressWidth));
+    if(nrf_device->enableAutoAck){
+        // Copy the same address from TX_ADDR to Pipe 0 on  RX_ADDR_P0 register  because after transmit the NRF momentarily becomes a receiver 
+        //      to listen for the auto ACK and it listens on Pipe 0. Remember the address you are transmitting is at least 3 bytes long depending on the width setting. 
+        //      You must write that same amount of bytes in the TX_ADDR register and Pipe 0 address register 
+        NRF24L01_writeRegister(nrf_device, NRF_REG_RX_ADDR_P0, lsbToMSBConversion, (2 + nrf_device->addressWidth));
+    }
 }
 
 void NRF24L01_writeReceiveAddress(NRF24L01* nrf_device){
@@ -268,6 +272,7 @@ bool NRF24L01_receive(NRF24L01* nrf_device){
         NRF24L01_readRegister(nrf_device, NRF_COMMAND_R_RX_PAYLOAD, nrf_device->data, nrf_device->payloadWidth);
 
         // Clear interrupt
+        nrf_device->interruptTrigger = false;
         NRF24L01_clearInterrupts(nrf_device);
 
         // Start listening again?
@@ -277,6 +282,7 @@ bool NRF24L01_receive(NRF24L01* nrf_device){
 
 void NRF24L01_transmitLoop(NRF24L01* nrf_device){
     if(nrf_device->interruptTrigger){
+        nrf_device->interruptTrigger = false;
         NRF24L01_clearInterrupts(nrf_device);
     }
 }

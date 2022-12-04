@@ -7,19 +7,16 @@
 
 typedef struct {
     SPI_HandleTypeDef* spiHandler;
-    uint8_t status;                 // store the last retreived status reg
 
-    bool enableCRC;                 // true / false
+    // User settings
+    bool enableCRC;                 // true / false (enabled by default with auto ack)
     uint8_t crcScheme;              // ENCODING_SCHEME_1_BYTE / ENCODING_SCHEME_2_BYTE
     bool enableAutoAck;             // true / false
     uint8_t rfChannel;              // 0 - 126  (2.400GHz to 2.525GHz)(2400 + RF_CH)
     uint8_t addressWidth;           // THREE_BYTES / FOUR_BYTES / FIVE_BYTES
     bool enableDynamicPlWidth;      // true / false
     uint8_t mode;                   // TX Mode or RX Mode
-    uint8_t transmitSpeed;          // 
-
-    bool interruptTrigger;          // Set when interrupt is triggered by NRF
-    volatile uint8_t data[32];      // Stores data received
+    uint8_t transmitSpeed;          // NRF_SPEED_1Mbps / NRF_SPEED_2Mbps / NRF_SPEED_250Kbps
 
     //rx settings
     uint64_t rx_address;            // address of receiver (max 5 bytes)
@@ -28,14 +25,20 @@ typedef struct {
     bool enableRxDrInterrupt;       // true / false
 
     //tx settings
-    uint64_t tx_address;          // address of transmitter (max 5 bytes)
+    uint64_t tx_address;            // address of transmitter (max 5 bytes)
     bool enableMaxRtInterrupt;      // true / false
     bool enableTxDsInterrupt;       // true / false
     uint8_t autoRetransmitDelay;    // Auto Retransmit Delay ‘0000’ – Wait 250µS ‘0001’ – Wait 500µS ‘0010’ – Wait 750µS …….. ‘1111’ – Wait 4000µS (Delay defined from end of transmission to start of next transmission)
     uint8_t autoRetransmitCount;    //  Auto Retransmit Count ‘0000’ –Re-Transmit disabled ‘0001’ – Up to 1 Re-Transmit on fail of AA …… ‘1111’ – Up to 15 Re-Transmit on fail of AA
 
+    // Function pointers needed
     void (*NRF_setCEPin)(GPIO_PinState);
     void (*NRF_setCSNPin)(GPIO_PinState);
+
+    // Internal variables 
+    bool interruptTrigger;          // Set when interrupt is triggered by NRF
+    volatile uint8_t data[32];      // Stores data received
+    uint8_t status;                 // store the last retreived status reg
 }NRF24L01;
 
 // SPI Commands
@@ -119,26 +122,26 @@ typedef struct {
 #define NRF_MASK_STATUS_TX_FULL      (1 << NRF_STATUS_TX_FULL) // TX FIFO full flag. 1: TX FIFO full. 0: Available locations in TX FIFO
 
 // Settings
-#define NRF_MODE_TRANSMITTER    0
-#define NRF_MODE_RECEIVER       1
+#define NRF_MODE_TRANSMITTER        0
+#define NRF_MODE_RECEIVER           1
 
-#define NRF_CRC_1_BYTE          0
-#define NRF_CRC_2_BYTE          1
+#define NRF_CRC_1_BYTE              0
+#define NRF_CRC_2_BYTE              1
 
 #define NRF_ADDRES_WIDTH_3_BYTES    0b01
 #define NRF_ADDRES_WIDTH_4_BYTES    0b10
 #define NRF_ADDRES_WIDTH_5_BYTES    0b11
 
-#define NRF_PIPE_0              0
-#define NRF_PIPE_1              1
-#define NRF_PIPE_2              2
-#define NRF_PIPE_3              3
-#define NRF_PIPE_4              4
-#define NRF_PIPE_5              5
+#define NRF_PIPE_0                  0
+#define NRF_PIPE_1                  1
+#define NRF_PIPE_2                  2
+#define NRF_PIPE_3                  3
+#define NRF_PIPE_4                  4
+#define NRF_PIPE_5                  5
 
-#define NRF_SPEED_1Mbps         0b00
-#define NRF_SPEED_2Mbps         0b01
-#define NRF_SPEED_250Kbps       0b10
+#define NRF_SPEED_1Mbps             0b00
+#define NRF_SPEED_2Mbps             0b01
+#define NRF_SPEED_250Kbps           0b10
 
 // Functions
 void NRF24L01_setup(NRF24L01* nrf_device);

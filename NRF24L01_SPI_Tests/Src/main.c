@@ -123,9 +123,10 @@ int main(void)
   nrf.NRF_setCSNPin = &setCSNPin;
   nrf.crcScheme = NRF_CRC_1_BYTE;
   nrf.enableCRC = true;
+  nrf.enableAutoAck = false;
   nrf.addressWidth = NRF_ADDRES_WIDTH_5_BYTES;
   nrf.payloadWidth = 10;
-  nrf.transmitSpeed = NRF_SPEED_250Kbps;
+  nrf.transmitSpeed = NRF_SPEED_2Mbps;
 
   // For transmitter
   #ifndef RECEIVER
