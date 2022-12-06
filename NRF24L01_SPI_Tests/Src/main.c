@@ -124,6 +124,7 @@ int main(void)
   nrf.crcScheme = NRF_CRC_1_BYTE;
   nrf.enableCRC = true;
   nrf.enableAutoAck = true;
+  nrf.enableDynamicPlWidth = true;
   nrf.addressWidth = NRF_ADDRES_WIDTH_5_BYTES;
   nrf.payloadWidth = 10;
   nrf.transmitSpeed = NRF_SPEED_2Mbps;
@@ -162,7 +163,7 @@ int main(void)
 
   HAL_Delay(100);
 
-  uint32_t start = HAL_GetTick();
+  uint32_t flashTime = HAL_GetTick();
 
   #ifdef RECEIVER
   // Start listening (Set CE high)
@@ -208,20 +209,24 @@ int main(void)
         if(status & NRF_MASK_STATUS_TX_DS){
           sendCount++;
         }
-        printf("Sending: %x:%x:%x:%x:%x - %s - Time = %ld\n", receiverAddr[0], receiverAddr[1], receiverAddr[2], receiverAddr[3], receiverAddr[4], receiveBuffer, HAL_GetTick() - sendTime);
+        printf("Sending: %x:%x:%x:%x:%x - %s - Time = %ld\n", 
+          receiverAddr[0], receiverAddr[1], receiverAddr[2], receiverAddr[3], receiverAddr[4], 
+          receiveBuffer, (HAL_GetTick() - sendTime));
         sendTime = HAL_GetTick();
 
-        NRF24L01_transmit(&nrf, receiverAddr, receiveBuffer, 10);
+        NRF24L01_transmit(&nrf, receiverAddr, receiveBuffer, strlen(receiveBuffer));
       }
     }
 
     // NRF24L01_transmitLoop(&nrf);
     #endif
 
-    if(HAL_GetTick() - start > 500){
+    if(HAL_GetTick() - flashTime > 500){
       HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
-      start = HAL_GetTick();
+      flashTime = HAL_GetTick();
     }
+
+    HAL_Delay(100);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */

@@ -106,6 +106,10 @@ typedef struct {
 #define NRF_RF_SETUP_RF_DR_HIGH 3 // Select between the high speed data rates. This bit is don’t care if RF_DR_LOW is set
 #define NRF_RF_SETUP_RF_PWR     1 // Set RF output power in TX mode
 
+#define NRF_FEATURE_EN_DPL      2 // Enables Dynamic Payload Length
+#define NRF_FEATURE_EN_ACK_PAY  1 // Enables Payload with ACK
+#define NRF_FEATURE_EN_DYN_ACK  0 // Enables the W_TX_PAYLOAD_NOACK command
+
 // Register Masks
 #define NRF_MASK_CONFIG_MASK_RX_DR   (1 << NRF_CONFIG_MASK_RX_DR) // Mask interrupt caused by RX_DR 1: Interrupt not reflected on the IRQ pin 0: Reflect RX_DR as active low interrupt on the IRQ pin
 #define NRF_MASK_CONFIG_MASK_TX_DS   (1 << NRF_CONFIG_MASK_TX_DS) // Mask interrupt caused by TX_DS 1: Interrupt not reflected on the IRQ pin 0: Reflect TX_DS as active low interrupt on the IRQ pin
@@ -120,6 +124,10 @@ typedef struct {
 #define NRF_MASK_STATUS_MAX_RT       (1 << NRF_STATUS_MAX_RT) // Maximum number of TX retransmits interrupt Write 1 to clear bit. If MAX_RT is asserted it must be cleared to enable further communication. 
 #define NRF_MASK_STATUS_RX_P_NO      (1 << NRF_STATUS_RX_P_NO) // Data pipe number for the payload available for reading from RX_FIFO 000-101: Data Pipe Number 110: Not Used 111: RX FIFO Empty
 #define NRF_MASK_STATUS_TX_FULL      (1 << NRF_STATUS_TX_FULL) // TX FIFO full flag. 1: TX FIFO full. 0: Available locations in TX FIFO
+
+#define NRF_MASK_FEATURE_EN_DPL      (1 << NRF_FEATURE_EN_DPL) // Enables Dynamic Payload Length
+#define NRF_MASK_FEATURE_EN_ACK_PAY  (1 << NRF_FEATURE_EN_ACK_PAY) // Enables Payload with ACK
+#define NRF_MASK_FEATURE_EN_DYN_ACK  (1 << NRF_FEATURE_EN_DYN_ACK) // Enables the W_TX_PAYLOAD_NOACK command
 
 // Settings
 #define NRF_MODE_TRANSMITTER        0

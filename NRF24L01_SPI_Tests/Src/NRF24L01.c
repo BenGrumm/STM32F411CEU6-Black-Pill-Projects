@@ -7,6 +7,8 @@ void NRF24L01_transmitCommand(NRF24L01* nrf_device, uint8_t command);
 void NRF24L01_flushTX(NRF24L01* nrf_device);
 void NRF24L01_flushRX(NRF24L01* nrf_device);
 void NRF24L01_resetAllRegs(NRF24L01* nrf_device);
+void NRF24L01_activate(NRF24L01* nrf_device);
+void NRF24L01_enableDPL(NRF24L01* nrf_device);
 
 // TODO Remove after debug
 #define BYTE_TO_BINARY_PATTERN "%c%c%c%c%c%c%c%c"
@@ -78,19 +80,23 @@ void NRF24L01_setup(NRF24L01* nrf_device){
         tempReg |= 1 << nrf_device->rxPipe;
         NRF24L01_writeRegister(nrf_device, NRF_REG_EN_RXADDR, &tempReg, 1);
 
-        if(nrf_device->enableAutoAck){
+        NRF24L01_writeReceiveAddress(nrf_device);
+
+        if(nrf_device->enableAutoAck || nrf_device->enableDynamicPlWidth){
             tempReg |= 1 << NRF_PIPE_1;
             // Enable auto ack on chosen pipe and pipe 1
             NRF24L01_modifyRegister(nrf_device, NRF_REG_EN_AA, tempReg, 0);
         }
 
-        // First 2 bits in payload width are reserved so ensure 0
-        nrf_device->payloadWidth &= 0b00111111;
-
-        NRF24L01_writeReceiveAddress(nrf_device);
-
-        // Write the payload width
-        NRF24L01_writeRegister(nrf_device, NRF_REG_RX_PW_P0 + nrf_device->rxPipe, &nrf_device->payloadWidth, 1);
+        if(nrf_device->enableDynamicPlWidth){
+            NRF24L01_enableDPL(nrf_device);
+        }else{
+            // Enable static payload width and write known width
+            // First 2 bits in payload width are reserved so ensure 0
+            nrf_device->payloadWidth &= 0b00111111;
+            // Write the payload width
+            NRF24L01_writeRegister(nrf_device, NRF_REG_RX_PW_P0 + nrf_device->rxPipe, &nrf_device->payloadWidth, 1);
+        }
     }
 
     if(nrf_device->mode == NRF_MODE_TRANSMITTER){
@@ -105,6 +111,10 @@ void NRF24L01_setup(NRF24L01* nrf_device){
 
         // Set up tx address
         NRF24L01_writeTransmitAddress(nrf_device);
+
+        if(nrf_device->enableDynamicPlWidth){
+            NRF24L01_enableDPL(nrf_device);
+        }
     }
     
     NRF24L01_flushRX(nrf_device);
@@ -152,6 +162,24 @@ void NRF24L01_setup(NRF24L01* nrf_device){
     NRF24L01_readRegister(nrf_device, NRF_REG_RF_SETUP, &tempReg, 1);
     printf("RF Setup - "BYTE_TO_BINARY_PATTERN"\n", BYTE_TO_BINARY(tempReg));
     HAL_Delay(100);
+}
+
+void NRF24L01_enableDPL(NRF24L01* nrf_device){
+    NRF24L01_activate(nrf_device); // May not be need for NRF24L01+
+    // Enable dynamic payload 
+    NRF24L01_modifyRegister(nrf_device, NRF_REG_FEATURE, NRF_MASK_FEATURE_EN_DPL, 0);
+    if(nrf_device->mode == NRF_MODE_TRANSMITTER){
+        // A PTX that transmits to a PRX with DPL enabled must have the DPL_P0 bit in DYNPD set.
+        NRF24L01_modifyRegister(nrf_device, NRF_REG_DYNPD, 1 << NRF_PIPE_0, 0);
+    }else{
+        // Set pipe to enable dynamic payload on (0 - 5)
+        NRF24L01_modifyRegister(nrf_device, NRF_REG_DYNPD, 1 << nrf_device->rxPipe | 1 << NRF_PIPE_1, 0);
+    }
+}
+
+void NRF24L01_activate(NRF24L01* nrf_device){
+    const uint8_t tempReg = 0x73;
+    NRF24L01_writeRegister(nrf_device, 0b01010000, &tempReg, 1);
 }
 
 void NRF24L01_resetAllRegs(NRF24L01* nrf_device){
@@ -271,12 +299,24 @@ bool NRF24L01_receive(NRF24L01* nrf_device){
         // Stop listening
         nrf_device->NRF_setCEPin(GPIO_PIN_RESET);
 
-        // Retreive data
-        NRF24L01_readRegister(nrf_device, NRF_COMMAND_R_RX_PAYLOAD, nrf_device->data, nrf_device->payloadWidth);
+        uint8_t payloadWidth = 0;
+
+        if(nrf_device->enableDynamicPlWidth){
+            NRF24L01_readRegister(nrf_device, NRF_COMMAND_R_RX_PL_WID, &payloadWidth, 1);
+        }else{
+            payloadWidth = nrf_device->payloadWidth;
+        }
+
+        if(payloadWidth <= 32){
+            // Retreive data
+            NRF24L01_readRegister(nrf_device, NRF_COMMAND_R_RX_PAYLOAD, nrf_device->data, payloadWidth);
+        }
 
         // Clear interrupt
         nrf_device->interruptTrigger = false;
         NRF24L01_clearInterrupts(nrf_device);
+
+        NRF24L01_flushRX(nrf_device);
 
         // Start listening again?
         nrf_device->NRF_setCEPin(GPIO_PIN_SET);
