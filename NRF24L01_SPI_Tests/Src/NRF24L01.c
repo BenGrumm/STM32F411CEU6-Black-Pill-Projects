@@ -26,6 +26,7 @@ void NRF24L01_setup(NRF24L01* nrf_device){
     uint8_t tempReg = 0;
 
     nrf_device->interruptTrigger = false;
+    nrf_device->hasTransmitted = false;
     sprintf((char*)nrf_device->data, "No Data\n");
 
     // Ensure chip enable is off and then power up
@@ -329,8 +330,16 @@ bool NRF24L01_receive(NRF24L01* nrf_device){
 
 void NRF24L01_transmitLoop(NRF24L01* nrf_device){
     if(nrf_device->interruptTrigger){
-        nrf_device->interruptTrigger = false;
+        uint8_t status = 0;
+        NRF24L01_readRegister(nrf_device, NRF_REG_STATUS, &status, 1);
+
         NRF24L01_clearInterrupts(nrf_device);
+        nrf_device->interruptTrigger = false;
+
+        if(status & NRF_MASK_STATUS_TX_DS || status & NRF_MASK_STATUS_MAX_RT){
+            // Transmit completed succesfully or unsucessfully
+            nrf_device->hasTransmitted = false;
+        }
     }
 }
 
@@ -341,10 +350,11 @@ void NRF24L01_transmitLoop(NRF24L01* nrf_device){
  * @param receiverAddress In order LSByte-MSByte with length of addressWidth set
  * @param data 
  * @param dataLen max 32 bytes
+ * @return bool
  */
-void NRF24L01_transmit(NRF24L01* nrf_device, uint8_t* receiverAddress, uint8_t* data, uint8_t dataLen){
-    if(nrf_device->mode != NRF_MODE_TRANSMITTER){
-        return;
+bool NRF24L01_transmit(NRF24L01* nrf_device, uint8_t* receiverAddress, uint8_t* data, uint8_t dataLen){
+    if(nrf_device->mode != NRF_MODE_TRANSMITTER || nrf_device->hasTransmitted){
+        return false;
     }
 
     // Make sure CE is LOW
@@ -361,6 +371,10 @@ void NRF24L01_transmit(NRF24L01* nrf_device, uint8_t* receiverAddress, uint8_t* 
     nrf_device->NRF_setCEPin(GPIO_PIN_SET);
     HAL_Delay(1);
     nrf_device->NRF_setCEPin(GPIO_PIN_RESET);
+
+    nrf_device->hasTransmitted = true;
+
+    return true;
 }
 
 void NRF24L01_startListening(NRF24L01* nrf_device){

@@ -197,28 +197,21 @@ int main(void)
     }
     #else
 
-    if(nrf.interruptTrigger){
-      uint8_t status = 0;
-      NRF24L01_readRegister(&nrf, NRF_REG_STATUS, &status, 1);
+    NRF24L01_transmitLoop(&nrf);
 
-      NRF24L01_clearInterrupts(&nrf);
-      nrf.interruptTrigger = false;
+    bool hasSent = NRF24L01_transmit(&nrf, receiverAddr, receiveBuffer, strlen(receiveBuffer));
 
-      if(status & NRF_MASK_STATUS_TX_DS || status & NRF_MASK_STATUS_MAX_RT){
-        sprintf((char*)receiveBuffer, "RX: %d\n", sendCount);
-        if(status & NRF_MASK_STATUS_TX_DS){
-          sendCount++;
-        }
-        printf("Sending: %x:%x:%x:%x:%x - %s - Time = %ld\n", 
+    if(hasSent){
+      sprintf((char*)receiveBuffer, "RX: %d\n", sendCount);
+      sendCount++;
+
+      printf("Sending: %x:%x:%x:%x:%x - %s - Time = %ld\n", 
           receiverAddr[0], receiverAddr[1], receiverAddr[2], receiverAddr[3], receiverAddr[4], 
           receiveBuffer, (HAL_GetTick() - sendTime));
-        sendTime = HAL_GetTick();
-
-        NRF24L01_transmit(&nrf, receiverAddr, receiveBuffer, strlen(receiveBuffer));
-      }
+      
+      sendTime = HAL_GetTick();
     }
 
-    // NRF24L01_transmitLoop(&nrf);
     #endif
 
     if(HAL_GetTick() - flashTime > 500){

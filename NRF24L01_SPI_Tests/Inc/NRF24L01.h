@@ -30,6 +30,7 @@ typedef struct {
     bool enableTxDsInterrupt;       // true / false
     uint8_t autoRetransmitDelay;    // Auto Retransmit Delay ‘0000’ – Wait 250µS ‘0001’ – Wait 500µS ‘0010’ – Wait 750µS …….. ‘1111’ – Wait 4000µS (Delay defined from end of transmission to start of next transmission)
     uint8_t autoRetransmitCount;    //  Auto Retransmit Count ‘0000’ –Re-Transmit disabled ‘0001’ – Up to 1 Re-Transmit on fail of AA …… ‘1111’ – Up to 15 Re-Transmit on fail of AA
+    bool hasTransmitted;
 
     // Function pointers needed
     void (*NRF_setCEPin)(GPIO_PinState);
@@ -158,7 +159,7 @@ void NRF24L01_modifyRegister(NRF24L01* nrf_device, uint8_t regAddr, uint8_t setM
 void NRF24L01_writeRegister(NRF24L01* nrf_device, uint8_t regAddr, uint8_t* pWriteData, uint8_t len);
 void NRF24L01_readRegister(NRF24L01* nrf_device, uint8_t regAddr, uint8_t* pReadData, uint8_t len);
 void NRF24L01_clearInterrupts(NRF24L01* nrf_device);
-void NRF24L01_transmit(NRF24L01* nrf_device, uint8_t* receiverAddress, uint8_t* data, uint8_t dataLen);
+bool NRF24L01_transmit(NRF24L01* nrf_device, uint8_t* receiverAddress, uint8_t* data, uint8_t dataLen);
 void NRF24L01_transmitLoop(NRF24L01* nrf_device);
 void NRF24L01_getLSBToMSBArray(uint64_t valueToConvert, uint8_t* destination);
 
