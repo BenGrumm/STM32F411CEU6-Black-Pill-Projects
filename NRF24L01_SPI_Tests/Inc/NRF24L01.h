@@ -4,6 +4,7 @@
 #include "stm32f4xx_hal.h"
 #include <stdint.h>
 #include <stdbool.h>
+#include <string.h>
 
 typedef struct {
     SPI_HandleTypeDef* spiHandler;
@@ -30,7 +31,6 @@ typedef struct {
     bool enableTxDsInterrupt;       // true / false
     uint8_t autoRetransmitDelay;    // Auto Retransmit Delay ‘0000’ – Wait 250µS ‘0001’ – Wait 500µS ‘0010’ – Wait 750µS …….. ‘1111’ – Wait 4000µS (Delay defined from end of transmission to start of next transmission)
     uint8_t autoRetransmitCount;    //  Auto Retransmit Count ‘0000’ –Re-Transmit disabled ‘0001’ – Up to 1 Re-Transmit on fail of AA …… ‘1111’ – Up to 15 Re-Transmit on fail of AA
-    bool hasTransmitted;
 
     // Function pointers needed
     void (*NRF_setCEPin)(GPIO_PinState);
@@ -38,8 +38,12 @@ typedef struct {
 
     // Internal variables 
     bool interruptTrigger;          // Set when interrupt is triggered by NRF
+    bool hasTransmitted;            // Variable to 
     volatile uint8_t data[32];      // Stores data received
     uint8_t status;                 // store the last retreived status reg
+    uint8_t dmaTransmitState;       // Used for DMA transmit to not have blocking when transmitting / delaying
+    bool txCpltInterrupt;
+    bool rxCpltInterrupt;
 }NRF24L01;
 
 // SPI Commands
@@ -152,14 +156,24 @@ typedef struct {
 #define NRF_SPEED_2Mbps             0b01
 #define NRF_SPEED_250Kbps           0b10
 
+// DMA State
+
+// Transmit state
+#define NRF_DMA_TRANSMIT_STATE_FLUSH            0x01
+#define NRF_DMA_TRANSMIT_STATE_WRITE            0x02
+#define NRF_DMA_TRANSMIT_STATE_SEND             0x03
+#define NRF_DMA_TRANSMIT_STATE_SENT             0x04
+
 // Functions
 void NRF24L01_setup(NRF24L01* nrf_device);
 bool NRF24L01_receive(NRF24L01* nrf_device);
 void NRF24L01_modifyRegister(NRF24L01* nrf_device, uint8_t regAddr, uint8_t setMask, uint8_t resetMask);
 void NRF24L01_writeRegister(NRF24L01* nrf_device, uint8_t regAddr, uint8_t* pWriteData, uint8_t len);
+void NRF24L01_writeRegisterDMA(NRF24L01* nrf_device, uint8_t regAddr, uint8_t* pWriteData, uint8_t len);
 void NRF24L01_readRegister(NRF24L01* nrf_device, uint8_t regAddr, uint8_t* pReadData, uint8_t len);
 void NRF24L01_clearInterrupts(NRF24L01* nrf_device);
 bool NRF24L01_transmit(NRF24L01* nrf_device, uint8_t* receiverAddress, uint8_t* data, uint8_t dataLen);
+bool NRF24L01_transmitDMA(NRF24L01* nrf_device, uint8_t* receiverAddress, uint8_t* data, uint8_t dataLen);
 void NRF24L01_transmitLoop(NRF24L01* nrf_device);
 void NRF24L01_getLSBToMSBArray(uint64_t valueToConvert, uint8_t* destination);
 

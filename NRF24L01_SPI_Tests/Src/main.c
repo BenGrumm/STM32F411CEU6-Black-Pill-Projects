@@ -43,6 +43,7 @@
 
 /* Private variables ---------------------------------------------------------*/
 SPI_HandleTypeDef hspi1;
+DMA_HandleTypeDef hdma_spi1_tx;
 
 /* USER CODE BEGIN PV */
 NRF24L01 nrf;
@@ -52,6 +53,7 @@ NRF24L01 nrf;
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_DMA_Init(void);
 static void MX_SPI1_Init(void);
 /* USER CODE BEGIN PFP */
 void printAddrRegs(void);
@@ -105,6 +107,7 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_SPI1_Init();
   MX_USB_DEVICE_Init();
   /* USER CODE BEGIN 2 */
@@ -170,7 +173,7 @@ int main(void)
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, GPIO_PIN_SET);
   #else
   sprintf((char*)receiveBuffer, "RX: %d\n", sendCount++);
-  NRF24L01_transmit(&nrf, receiverAddr, receiveBuffer, 10);
+  NRF24L01_transmitDMA(&nrf, receiverAddr, receiveBuffer, 10);
   uint32_t sendTime = HAL_GetTick();
   #endif
 
@@ -182,13 +185,12 @@ int main(void)
   {
     // printAddrRegs();
 
+
     NRF24L01_readRegister(&nrf, NRF_REG_STATUS, &nrf.status, 1);
     printf("Status - "BYTE_TO_BINARY_PATTERN"\n", BYTE_TO_BINARY(nrf.status));
-    HAL_Delay(50);
 
     if(nrf.interruptTrigger){
       printf("Interrupt Flag Set\n");
-      HAL_Delay(50);
     }
 
     #ifdef RECEIVER
@@ -199,7 +201,7 @@ int main(void)
 
     NRF24L01_transmitLoop(&nrf);
 
-    bool hasSent = NRF24L01_transmit(&nrf, receiverAddr, receiveBuffer, strlen(receiveBuffer));
+    bool hasSent = NRF24L01_transmitDMA(&nrf, receiverAddr, receiveBuffer, strlen(receiveBuffer));
 
     if(hasSent){
       sprintf((char*)receiveBuffer, "RX: %d\n", sendCount);
@@ -210,6 +212,7 @@ int main(void)
           receiveBuffer, (HAL_GetTick() - sendTime));
       
       sendTime = HAL_GetTick();
+      HAL_Delay(100);
     }
 
     #endif
@@ -219,7 +222,6 @@ int main(void)
       flashTime = HAL_GetTick();
     }
 
-    HAL_Delay(100);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -307,6 +309,22 @@ static void MX_SPI1_Init(void)
   /* USER CODE BEGIN SPI1_Init 2 */
 
   /* USER CODE END SPI1_Init 2 */
+
+}
+
+/**
+  * Enable DMA controller clock
+  */
+static void MX_DMA_Init(void)
+{
+
+  /* DMA controller clock enable */
+  __HAL_RCC_DMA2_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA2_Stream2_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA2_Stream2_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Stream2_IRQn);
 
 }
 
@@ -400,6 +418,21 @@ void printAddrRegs(){
   NRF24L01_readRegister(&nrf, NRF_REG_TX_ADDR, receiveBuffer, 5);
   printf("TX Addr = %x:%x:%x:%x:%x\n", receiveBuffer[0], receiveBuffer[1], receiveBuffer[2], receiveBuffer[3], receiveBuffer[4]);
   HAL_Delay(50);
+}
+
+void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi){
+  nrf.txCpltInterrupt = true;
+  setCSNPin(GPIO_PIN_SET);
+}
+
+void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi){
+  nrf.rxCpltInterrupt = true;
+  setCSNPin(GPIO_PIN_SET);
+}
+
+void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *hspi){
+  nrf.txCpltInterrupt = true;
+  setCSNPin(GPIO_PIN_SET);
 }
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
