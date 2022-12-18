@@ -173,9 +173,8 @@ int main(void)
   // Start listening (Set CE high)
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, GPIO_PIN_SET);
   #else
-  sprintf((char*)receiveBuffer, "RX: %d\n", sendCount++);
-  NRF24L01_transmitDMA(&nrf, receiverAddr, receiveBuffer, 10);
-  uint32_t sendTime = HAL_GetTick();
+  sprintf((char*)receiveBuffer, "RX: %d\n", sendCount);
+  uint32_t sendTime = 0;
   #endif
 
   /* USER CODE END 2 */
@@ -201,20 +200,14 @@ int main(void)
     }
     #else
 
-    NRF24L01_transmitLoopDMA(&nrf);
+    NRF24L01_transmitDMALoop_New(&nrf);
 
-    bool hasSent = NRF24L01_transmitDMA(&nrf, receiverAddr, receiveBuffer, strlen(receiveBuffer));
-
-    if(hasSent){
-      sprintf((char*)receiveBuffer, "RX: %d\n", sendCount);
+    if((HAL_GetTick() - sendTime) > 100 && NRF24L01_transmitDMA_New(&nrf, receiverAddr, receiveBuffer, strlen(receiveBuffer))){
       sendCount++;
-
-      printf("Sending: %x:%x:%x:%x:%x - %s - Time = %ld\n", 
-          receiverAddr[0], receiverAddr[1], receiverAddr[2], receiverAddr[3], receiverAddr[4], 
-          receiveBuffer, (HAL_GetTick() - sendTime));
-      
       sendTime = HAL_GetTick();
-      HAL_Delay(100);
+      printf("Send: %s\n", receiveBuffer);
+      
+      sprintf((char*)receiveBuffer, "RX: %d\n", sendCount);
     }
 
     #endif

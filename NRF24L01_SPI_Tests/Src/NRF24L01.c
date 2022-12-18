@@ -34,8 +34,12 @@ void NRF24L01_setup(NRF24L01* nrf_device){
     nrf_device->isTransmitCEWaitDMA = false;
     nrf_device->rxCpltInterrupt = false;
     nrf_device->txRXCpltInterrupt = false;
-    nrf_device->dmaTransmitState = NRF_DMA_TRANSMIT_STATE_FLUSH;
+    nrf_device->dmaTransmitState = NRF_DMA_TRANSMIT_STATE_FLUSH_TEMP;
     nrf_device->dmaLoopTransmitState = NRF_DMA_TRANSMIT_LOOP_STATE_READING;
+
+    // New stuff 
+    nrf_device->isWaitingSend = false;
+
     sprintf((char*)nrf_device->data, "No Data\n");
 
     // Ensure chip enable is off and then power up
@@ -468,6 +472,83 @@ bool NRF24L01_transmitDMA(NRF24L01* nrf_device, uint8_t* receiverAddress, uint8_
     }
 
     return false;
+}
+
+bool NRF24L01_transmitDMA_New(NRF24L01* nrf_device, uint8_t* receiverAddress, uint8_t* data, uint8_t dataLen){
+    // Check something is not being sent right now? TODO
+    if(nrf_device->isWaitingSend){
+        return false;
+    }
+
+    nrf_device->isWaitingSend = true;
+    // Copy into buffer
+    memmove(&nrf_device->sendBuffer[2], data, dataLen);
+    // Set flags, data len and address
+    nrf_device->dataLen = dataLen;
+    nrf_device->sendAddress = receiverAddress;
+
+    return true;
+}
+
+void NRF24L01_transmitDMALoop_New(NRF24L01* nrf_device){
+    if(!nrf_device->isWaitingSend){
+        return;
+    }
+
+    if(nrf_device->dmaTransmitState == NRF_DMA_TRANSMIT_STATE_FLUSH_TEMP){
+        nrf_device->txCpltInterrupt = false;
+        NRF24L01_flushTXDMA(nrf_device);
+        nrf_device->dmaTransmitState = NRF_DMA_TRANSMIT_STATE_FLUSH;
+    }else if(nrf_device->dmaTransmitState == NRF_DMA_TRANSMIT_STATE_FLUSH && nrf_device->txCpltInterrupt){
+        nrf_device->sendBuffer[0] = NRF_COMMAND_FLUSH_TX;
+        nrf_device->sendBuffer[1] = NRF_COMMAND_W_TX_PAYLOAD;
+
+        // Make sure CE is LOW
+        nrf_device->NRF_setCEPin(GPIO_PIN_RESET);
+        nrf_device->txCpltInterrupt = false;
+
+        nrf_device->NRF_setCSNPin(GPIO_PIN_RESET);
+        HAL_SPI_Transmit_DMA(nrf_device->spiHandler, &nrf_device->sendBuffer[1], nrf_device->dataLen + 1);
+
+        nrf_device->dmaTransmitState = NRF_DMA_TRANSMIT_STATE_SEND;
+    }else if(nrf_device->dmaTransmitState == NRF_DMA_TRANSMIT_STATE_SEND && nrf_device->txCpltInterrupt){
+        nrf_device->sendWaitTime = HAL_GetTick();
+        nrf_device->dmaTransmitState = NRF_DMA_TRANSMIT_STATE_SENT;
+
+        nrf_device->NRF_setCEPin(GPIO_PIN_SET);
+    }else if(nrf_device->dmaTransmitState == NRF_DMA_TRANSMIT_STATE_SENT && (HAL_GetTick() - nrf_device->sendWaitTime) > 0){
+        nrf_device->NRF_setCEPin(GPIO_PIN_RESET);
+        nrf_device->dmaTransmitState = NRF_DMA_TRANSMIT_STATE_CONFIRM_SENT;
+    }else if(nrf_device->dmaTransmitState == NRF_DMA_TRANSMIT_STATE_CONFIRM_SENT && nrf_device->interruptTrigger){
+        // First read status then store
+        nrf_device->transmitLoopTXBuffer[0] = NRF_COMMAND_R_REGISTER | NRF_REG_STATUS;
+        nrf_device->transmitLoopTXBuffer[1] = NRF_COMMAND_NOP;
+        // Second Clear interrupts
+        nrf_device->transmitLoopTXBuffer[2] = NRF_COMMAND_W_REGISTER | NRF_REG_STATUS;
+        nrf_device->transmitLoopTXBuffer[3] = NRF_INTERRUPT_MASK;
+
+        nrf_device->interruptTrigger = false;
+        nrf_device->dmaTransmitState = NRF_DMA_TRANSMIT_STATE_CONFIRM_SENT_TEMP;
+
+        nrf_device->NRF_setCSNPin(GPIO_PIN_RESET);
+        HAL_SPI_TransmitReceive_DMA(nrf_device->spiHandler, nrf_device->transmitLoopTXBuffer, nrf_device->transmitLoopRXBuffer, 2);
+    }else if(nrf_device->dmaTransmitState == NRF_DMA_TRANSMIT_STATE_CONFIRM_SENT_TEMP && nrf_device->txRXCpltInterrupt){
+        nrf_device->NRF_setCSNPin(GPIO_PIN_RESET);
+        nrf_device->txRXCpltInterrupt = false;
+        HAL_SPI_TransmitReceive_DMA(nrf_device->spiHandler, &nrf_device->transmitLoopTXBuffer[2], &nrf_device->transmitLoopRXBuffer[2], 2);
+        nrf_device->dmaTransmitState = NRF_DMA_TRANSMIT_STATE_CHECK_STATUS;
+    }else if(nrf_device->dmaTransmitState == NRF_DMA_TRANSMIT_STATE_CHECK_STATUS && nrf_device->txRXCpltInterrupt){
+        nrf_device->txRXCpltInterrupt = false;
+
+        if(nrf_device->transmitLoopRXBuffer[1] & NRF_MASK_STATUS_TX_DS || nrf_device->transmitLoopRXBuffer[1] & NRF_MASK_STATUS_MAX_RT){
+            // Transmit completed succesfully or unsucessfully
+            nrf_device->hasTransmitted = false;
+        }
+
+        nrf_device->dmaTransmitState = NRF_DMA_TRANSMIT_STATE_FLUSH_TEMP;
+        nrf_device->isWaitingSend = false;
+    }
+
 }
 
 void NRF24L01_startListening(NRF24L01* nrf_device){
