@@ -42,8 +42,13 @@ typedef struct {
     volatile uint8_t data[32];      // Stores data received
     uint8_t status;                 // store the last retreived status reg
     uint8_t dmaTransmitState;       // Used for DMA transmit to not have blocking when transmitting / delaying
+    uint8_t dmaLoopTransmitState;   // Used in the transmitLoopDMA function
     bool txCpltInterrupt;
     bool rxCpltInterrupt;
+    bool txRXCpltInterrupt;
+    bool isTransmitCEWaitDMA;
+    uint8_t transmitLoopTXBuffer[4];
+    uint8_t transmitLoopRXBuffer[4];
 }NRF24L01;
 
 // SPI Commands
@@ -164,6 +169,13 @@ typedef struct {
 #define NRF_DMA_TRANSMIT_STATE_SEND             0x03
 #define NRF_DMA_TRANSMIT_STATE_SENT             0x04
 
+// Transmit Loop state
+#define NRF_DMA_TRANSMIT_LOOP_STATE_READING     0x01
+#define NRF_DMA_TRANSMIT_LOOP_STATE_CLEANING    0x02
+
+// Misc
+#define NRF_INTERRUPT_MASK (NRF_MASK_STATUS_MAX_RT | NRF_MASK_STATUS_TX_DS | NRF_MASK_STATUS_RX_DR)
+
 // Functions
 void NRF24L01_setup(NRF24L01* nrf_device);
 bool NRF24L01_receive(NRF24L01* nrf_device);
@@ -175,6 +187,7 @@ void NRF24L01_clearInterrupts(NRF24L01* nrf_device);
 bool NRF24L01_transmit(NRF24L01* nrf_device, uint8_t* receiverAddress, uint8_t* data, uint8_t dataLen);
 bool NRF24L01_transmitDMA(NRF24L01* nrf_device, uint8_t* receiverAddress, uint8_t* data, uint8_t dataLen);
 void NRF24L01_transmitLoop(NRF24L01* nrf_device);
+void NRF24L01_transmitLoopDMA(NRF24L01* nrf_device);
 void NRF24L01_getLSBToMSBArray(uint64_t valueToConvert, uint8_t* destination);
 
 #endif

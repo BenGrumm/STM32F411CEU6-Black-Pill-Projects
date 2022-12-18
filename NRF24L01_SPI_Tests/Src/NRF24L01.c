@@ -31,8 +31,11 @@ void NRF24L01_setup(NRF24L01* nrf_device){
     nrf_device->interruptTrigger = false;
     nrf_device->hasTransmitted = false;
     nrf_device->txCpltInterrupt = false;
+    nrf_device->isTransmitCEWaitDMA = false;
     nrf_device->rxCpltInterrupt = false;
+    nrf_device->txRXCpltInterrupt = false;
     nrf_device->dmaTransmitState = NRF_DMA_TRANSMIT_STATE_FLUSH;
+    nrf_device->dmaLoopTransmitState = NRF_DMA_TRANSMIT_LOOP_STATE_READING;
     sprintf((char*)nrf_device->data, "No Data\n");
 
     // Ensure chip enable is off and then power up
@@ -351,6 +354,35 @@ void NRF24L01_transmitLoop(NRF24L01* nrf_device){
     }
 }
 
+void NRF24L01_transmitLoopDMA(NRF24L01* nrf_device){
+    if(!nrf_device->interruptTrigger && !nrf_device->isTransmitCEWaitDMA){
+        return;
+    }
+
+    if(HAL_SPI_GetState(nrf_device->spiHandler) == HAL_SPI_STATE_READY && nrf_device->dmaLoopTransmitState == NRF_DMA_TRANSMIT_LOOP_STATE_READING){
+        // First read status then store
+        nrf_device->transmitLoopTXBuffer[0] = NRF_COMMAND_R_REGISTER | NRF_REG_STATUS;
+        nrf_device->transmitLoopTXBuffer[1] = NRF_COMMAND_NOP;
+        // Second Clear interrupts
+        nrf_device->transmitLoopTXBuffer[2] = NRF_COMMAND_W_REGISTER | NRF_REG_STATUS;
+        nrf_device->transmitLoopTXBuffer[3] = NRF_INTERRUPT_MASK;
+
+        nrf_device->dmaLoopTransmitState = NRF_DMA_TRANSMIT_LOOP_STATE_CLEANING;
+        nrf_device->NRF_setCSNPin(GPIO_PIN_RESET);
+        HAL_SPI_TransmitReceive_DMA(nrf_device->spiHandler, nrf_device->transmitLoopTXBuffer, nrf_device->transmitLoopRXBuffer, 4);
+    }else if(nrf_device->dmaLoopTransmitState == NRF_DMA_TRANSMIT_LOOP_STATE_CLEANING && nrf_device->txRXCpltInterrupt){
+        nrf_device->interruptTrigger = false;
+        nrf_device->txRXCpltInterrupt = false;
+
+        if(nrf_device->transmitLoopRXBuffer[1] & NRF_MASK_STATUS_TX_DS || nrf_device->transmitLoopRXBuffer[1] & NRF_MASK_STATUS_MAX_RT){
+            // Transmit completed succesfully or unsucessfully
+            nrf_device->hasTransmitted = false;
+        }
+
+        nrf_device->dmaLoopTransmitState = NRF_DMA_TRANSMIT_LOOP_STATE_READING;
+    }
+}
+
 /**
  * @brief 
  * 
@@ -395,9 +427,8 @@ bool NRF24L01_transmit(NRF24L01* nrf_device, uint8_t* receiverAddress, uint8_t* 
  * @return bool
  */
 bool NRF24L01_transmitDMA(NRF24L01* nrf_device, uint8_t* receiverAddress, uint8_t* data, uint8_t dataLen){
-    static bool isCEWait = false;
 
-    if(nrf_device->mode != NRF_MODE_TRANSMITTER || (nrf_device->hasTransmitted && !isCEWait)){
+    if(nrf_device->mode != NRF_MODE_TRANSMITTER || (nrf_device->hasTransmitted && !nrf_device->isTransmitCEWaitDMA)){
         return false;
     }
     static uint32_t waitTime = 0;
@@ -419,7 +450,7 @@ bool NRF24L01_transmitDMA(NRF24L01* nrf_device, uint8_t* receiverAddress, uint8_
     }else if(nrf_device->txCpltInterrupt && nrf_device->dmaTransmitState == NRF_DMA_TRANSMIT_STATE_SEND){
         // Send the payload data.
         // Drive the CE pin HIGH for a minimum of 10us to start the transmission and then bring it back LOW
-        isCEWait = true;
+        nrf_device->isTransmitCEWaitDMA = true;
         nrf_device->hasTransmitted = true;
         nrf_device->NRF_setCEPin(GPIO_PIN_SET);
         nrf_device->dmaTransmitState = NRF_DMA_TRANSMIT_STATE_SENT;
@@ -428,7 +459,7 @@ bool NRF24L01_transmitDMA(NRF24L01* nrf_device, uint8_t* receiverAddress, uint8_
         waitTime = HAL_GetTick();
     }else if(nrf_device->dmaTransmitState == NRF_DMA_TRANSMIT_STATE_SENT && (HAL_GetTick() - waitTime) > 0){
         
-        isCEWait = false;
+        nrf_device->isTransmitCEWaitDMA = false;
         nrf_device->NRF_setCEPin(GPIO_PIN_RESET);
 
         nrf_device->dmaTransmitState = NRF_DMA_TRANSMIT_STATE_FLUSH;
@@ -458,7 +489,9 @@ void NRF24L01_flushTXDMA(NRF24L01* nrf_device){
 }
 
 void NRF24L01_transmitCommand(NRF24L01* nrf_device, uint8_t command){
+    nrf_device->NRF_setCSNPin(GPIO_PIN_RESET);
     HAL_SPI_Transmit(nrf_device->spiHandler, &command, 1, 100);
+    nrf_device->NRF_setCSNPin(GPIO_PIN_SET);
 }
 
 void NRF24L01_transmitCommandDMA(NRF24L01* nrf_device, uint8_t command){
@@ -513,11 +546,22 @@ void NRF24L01_readRegister(NRF24L01* nrf_device, uint8_t regAddr, uint8_t* pRead
     while(HAL_SPI_GetState(nrf_device->spiHandler) != HAL_SPI_STATE_READY);
     HAL_SPI_TransmitReceive(nrf_device->spiHandler, &command, &nrf_device->status, 1, 100);
 
-    command = NRF_COMMAND_NOP;
     while(HAL_SPI_GetState(nrf_device->spiHandler) != HAL_SPI_STATE_READY);
-    HAL_SPI_TransmitReceive(nrf_device->spiHandler, &command, pReadData, len, 100);
+    HAL_SPI_Receive(nrf_device->spiHandler, pReadData, len, 100);
 
     nrf_device->NRF_setCSNPin(GPIO_PIN_SET);
+}
+
+void NRF24L01_readRegisterDMA(NRF24L01* nrf_device, uint8_t regAddr, uint8_t* pReadData, uint8_t len){
+    uint8_t transmitBuffer[len + 1];
+    uint8_t receiveBuffer[len + 1]; 
+
+    transmitBuffer[0] = NRF_COMMAND_R_REGISTER | regAddr;
+
+    nrf_device->NRF_setCSNPin(GPIO_PIN_RESET);
+
+    // Transmit the command with reg to read (store the value returned which is the status reg)
+    HAL_SPI_TransmitReceive_DMA(nrf_device->spiHandler, transmitBuffer, receiveBuffer, len + 1);
 }
 
 /**
@@ -526,6 +570,6 @@ void NRF24L01_readRegister(NRF24L01* nrf_device, uint8_t regAddr, uint8_t* pRead
  * @param nrf_device device to clear regs on
  */
 void NRF24L01_clearInterrupts(NRF24L01* nrf_device){
-    uint8_t interruptMask = NRF_MASK_STATUS_MAX_RT | NRF_MASK_STATUS_TX_DS | NRF_MASK_STATUS_RX_DR;
+    uint8_t interruptMask = NRF_INTERRUPT_MASK;
     NRF24L01_writeRegister(nrf_device, NRF_REG_STATUS, &interruptMask, 1);
 }

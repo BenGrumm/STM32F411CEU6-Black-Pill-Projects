@@ -44,6 +44,7 @@
 /* Private variables ---------------------------------------------------------*/
 SPI_HandleTypeDef hspi1;
 DMA_HandleTypeDef hdma_spi1_tx;
+DMA_HandleTypeDef hdma_spi1_rx;
 
 /* USER CODE BEGIN PV */
 NRF24L01 nrf;
@@ -185,9 +186,10 @@ int main(void)
   {
     // printAddrRegs();
 
-
-    NRF24L01_readRegister(&nrf, NRF_REG_STATUS, &nrf.status, 1);
-    printf("Status - "BYTE_TO_BINARY_PATTERN"\n", BYTE_TO_BINARY(nrf.status));
+    // if(HAL_SPI_GetState(nrf.spiHandler) == HAL_SPI_STATE_READY){
+    //   NRF24L01_readRegister(&nrf, NRF_REG_STATUS, &nrf.status, 1);
+    //   printf("Status - "BYTE_TO_BINARY_PATTERN"\n", BYTE_TO_BINARY(nrf.status));
+    // }
 
     if(nrf.interruptTrigger){
       printf("Interrupt Flag Set\n");
@@ -199,7 +201,7 @@ int main(void)
     }
     #else
 
-    NRF24L01_transmitLoop(&nrf);
+    NRF24L01_transmitLoopDMA(&nrf);
 
     bool hasSent = NRF24L01_transmitDMA(&nrf, receiverAddr, receiveBuffer, strlen(receiveBuffer));
 
@@ -322,6 +324,9 @@ static void MX_DMA_Init(void)
   __HAL_RCC_DMA2_CLK_ENABLE();
 
   /* DMA interrupt init */
+  /* DMA2_Stream0_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA2_Stream0_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Stream0_IRQn);
   /* DMA2_Stream2_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA2_Stream2_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA2_Stream2_IRQn);
@@ -431,7 +436,7 @@ void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi){
 }
 
 void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *hspi){
-  nrf.txCpltInterrupt = true;
+  nrf.txRXCpltInterrupt = true;
   setCSNPin(GPIO_PIN_SET);
 }
 
