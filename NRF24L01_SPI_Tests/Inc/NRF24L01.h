@@ -37,26 +37,23 @@ typedef struct {
     void (*NRF_setCSNPin)(GPIO_PinState);
 
     // Internal variables 
-    bool interruptTrigger;          // Set when interrupt is triggered by NRF
-    bool hasTransmitted;            // Variable to 
-    volatile uint8_t data[32];      // Stores data received
-    uint8_t status;                 // store the last retreived status reg
-    uint8_t dmaTransmitState;       // Used for DMA transmit to not have blocking when transmitting / delaying
-    uint8_t dmaLoopTransmitState;   // Used in the transmitLoopDMA function
-    bool txCpltInterrupt;
-    bool rxCpltInterrupt;
-    bool txRXCpltInterrupt;
-    bool isTransmitCEWaitDMA;
-    uint8_t transmitLoopTXBuffer[4];
-    uint8_t transmitLoopRXBuffer[4];
+    bool interruptTrigger;              // Set when interrupt is triggered by NRF
+    bool hasTransmitted;                // Variable to 
+    volatile uint8_t data[32];          // Stores data received
+    uint8_t status;                     // store the last retreived status reg
+    uint8_t dmaTransmitState;           // Used for DMA transmit to not have blocking when transmitting / delaying
+    bool txCpltInterrupt;               // Set when completed transmit using dma
+    bool rxCpltInterrupt;               // Set when completed receive using dma
+    bool txRXCpltInterrupt;             // Set when completed receive/transmit using dma
+    uint8_t transmitLoopTXBuffer[2];    // Used for transmitting
+    uint8_t transmitLoopRXBuffer[2];
 
-    // NEW Stuff TESTING
     bool isWaitingSend;
     uint8_t* sendAddress;
     uint8_t dataLen;
     uint32_t sendWaitTime;
 
-    uint8_t sendBuffer[34];
+    uint8_t sendBuffer[33];
 }NRF24L01;
 
 // SPI Commands
@@ -172,19 +169,13 @@ typedef struct {
 // DMA State
 
 // Transmit state
-#define NRF_DMA_TRANSMIT_STATE_FLUSH            0x01
-#define NRF_DMA_TRANSMIT_STATE_WRITE            0x02
-#define NRF_DMA_TRANSMIT_STATE_SEND             0x03
-#define NRF_DMA_TRANSMIT_STATE_SENT             0x04
-// TEMP NEW
-#define NRF_DMA_TRANSMIT_STATE_CONFIRM_SENT     0x05
-#define NRF_DMA_TRANSMIT_STATE_CHECK_STATUS     0x06
-#define NRF_DMA_TRANSMIT_STATE_FLUSH_TEMP       0x07
-#define NRF_DMA_TRANSMIT_STATE_CONFIRM_SENT_TEMP 0x08
-
-// Transmit Loop state
-#define NRF_DMA_TRANSMIT_LOOP_STATE_READING     0x01
-#define NRF_DMA_TRANSMIT_LOOP_STATE_CLEANING    0x02
+#define NRF_DMA_TRANSMIT_STATE_FLUSH_TX             0x00
+#define NRF_DMA_TRANSMIT_STATE_WRITE_PAYLOAD        0x01
+#define NRF_DMA_TRANSMIT_STATE_START_SEND           0x02
+#define NRF_DMA_TRANSMIT_STATE_FINISH_SEND          0x03
+#define NRF_DMA_TRANSMIT_STATE_CHECK_INTERRUPT      0x04
+#define NRF_DMA_TRANSMIT_STATE_CLEAR_INTERRUPT      0x05
+#define NRF_DMA_TRANSMIT_STATE_CONFIRM_INTERRUPT    0x06
 
 // Misc
 #define NRF_INTERRUPT_MASK (NRF_MASK_STATUS_MAX_RT | NRF_MASK_STATUS_TX_DS | NRF_MASK_STATUS_RX_DR)
@@ -193,8 +184,8 @@ typedef struct {
 void NRF24L01_setup(NRF24L01* nrf_device);
 bool NRF24L01_receive(NRF24L01* nrf_device);
 void NRF24L01_modifyRegister(NRF24L01* nrf_device, uint8_t regAddr, uint8_t setMask, uint8_t resetMask);
-void NRF24L01_writeRegister(NRF24L01* nrf_device, uint8_t regAddr, uint8_t* pWriteData, uint8_t len);
-void NRF24L01_writeRegisterDMA(NRF24L01* nrf_device, uint8_t regAddr, uint8_t* pWriteData, uint8_t len);
+void NRF24L01_writeRegister(NRF24L01* nrf_device, uint8_t regAddr, const uint8_t* pWriteData, uint8_t len);
+void NRF24L01_writeRegisterDMA(NRF24L01* nrf_device, uint8_t regAddr, const uint8_t* pWriteData, uint8_t len);
 void NRF24L01_readRegister(NRF24L01* nrf_device, uint8_t regAddr, uint8_t* pReadData, uint8_t len);
 void NRF24L01_clearInterrupts(NRF24L01* nrf_device);
 bool NRF24L01_transmit(NRF24L01* nrf_device, uint8_t* receiverAddress, uint8_t* data, uint8_t dataLen);

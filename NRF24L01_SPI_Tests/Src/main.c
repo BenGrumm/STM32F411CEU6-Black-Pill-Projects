@@ -175,6 +175,7 @@ int main(void)
   #else
   sprintf((char*)receiveBuffer, "RX: %d\n", sendCount);
   uint32_t sendTime = 0;
+  uint32_t numLoops = 0;
   #endif
 
   /* USER CODE END 2 */
@@ -190,10 +191,6 @@ int main(void)
     //   printf("Status - "BYTE_TO_BINARY_PATTERN"\n", BYTE_TO_BINARY(nrf.status));
     // }
 
-    if(nrf.interruptTrigger){
-      printf("Interrupt Flag Set\n");
-    }
-
     #ifdef RECEIVER
     if(NRF24L01_receive(&nrf)){
       printf("Val = %s", (volatile char*)nrf.data);
@@ -201,13 +198,16 @@ int main(void)
     #else
 
     NRF24L01_transmitDMALoop_New(&nrf);
+    numLoops++;
 
-    if((HAL_GetTick() - sendTime) > 100 && NRF24L01_transmitDMA_New(&nrf, receiverAddr, receiveBuffer, strlen(receiveBuffer))){
+    if((HAL_GetTick() - sendTime) > 100 && NRF24L01_transmitDMA_New(&nrf, receiverAddr, receiveBuffer, strlen((char*)receiveBuffer))){
       sendCount++;
       sendTime = HAL_GetTick();
-      printf("Send: %s\n", receiveBuffer);
+      printf("Send: %s \nNum Loop: %ld\n", receiveBuffer, numLoops);
       
       sprintf((char*)receiveBuffer, "RX: %d\n", sendCount);
+
+      numLoops = 0;
     }
 
     #endif
