@@ -33,7 +33,7 @@ void NRF24L01_enableDPL(NRF24L01* nrf_device);
 void NRF24L01_setup(NRF24L01* nrf_device){
     uint8_t tempReg = 0;
 
-    nrf_device->interruptTrigger = false;
+    nrf_device->interruptTrigger = 0;
     nrf_device->hasTransmitted = false;
     nrf_device->txCpltInterrupt = false;
     nrf_device->rxCpltInterrupt = false;
@@ -343,18 +343,21 @@ bool NRF24L01_receive(NRF24L01* nrf_device){
 
     // If using interrupts and interrupt received or not using interrupts
     if((nrf_device->enableRxDrInterrupt && nrf_device->interruptTrigger) || !nrf_device->enableRxDrInterrupt){
+        
+        nrf_device->NRF_setCEPin(GPIO_PIN_RESET);
+        
         // Check for RX flag
-        NRF24L01_readRegister(nrf_device, NRF_REG_STATUS, &nrf_device->status, 1);
+        NRF24L01_readStatus(nrf_device);
+
         if(!(nrf_device->status & NRF_MASK_STATUS_RX_DR)){
             // RX flag not set so return false no data
+            nrf_device->NRF_setCEPin(GPIO_PIN_SET);
+
             return false;
         }
 
         // If more than one pipe check which pipe
         // TODO
-
-        // Stop listening
-        nrf_device->NRF_setCEPin(GPIO_PIN_RESET);
 
         uint8_t payloadWidth = 0;
 
@@ -370,7 +373,7 @@ bool NRF24L01_receive(NRF24L01* nrf_device){
         }
 
         // Clear interrupt
-        nrf_device->interruptTrigger = false;
+        nrf_device->interruptTrigger--;
         NRF24L01_clearInterrupts(nrf_device);
 
         NRF24L01_flushRX(nrf_device);
@@ -399,7 +402,7 @@ void NRF24L01_transmitLoop(NRF24L01* nrf_device){
     NRF24L01_readRegister(nrf_device, NRF_REG_STATUS, &status, 1);
 
     NRF24L01_clearInterrupts(nrf_device);
-    nrf_device->interruptTrigger = false;
+    nrf_device->interruptTrigger--;
 
     if(status & NRF_MASK_STATUS_TX_DS || status & NRF_MASK_STATUS_MAX_RT){
         // Transmit completed succesfully or unsucessfully
@@ -451,7 +454,7 @@ bool NRF24L01_transmit(NRF24L01* nrf_device, uint8_t* receiverAddress, uint8_t* 
  * @return true If the NRF is not busy sending
  * @return false If the NRF is unable to send
  */
-bool NRF24L01_transmitDMA_New(NRF24L01* nrf_device, uint8_t* receiverAddress, uint8_t* data, uint8_t dataLen){
+bool NRF24L01_transmitDMA(NRF24L01* nrf_device, uint8_t* receiverAddress, uint8_t* data, uint8_t dataLen){
     // Check something is not being sent right now
     if(nrf_device->isWaitingSend){
         return false;
@@ -473,7 +476,7 @@ bool NRF24L01_transmitDMA_New(NRF24L01* nrf_device, uint8_t* receiverAddress, ui
  * 
  * @param nrf_device The device that is transmitting
  */
-void NRF24L01_transmitDMALoop_New(NRF24L01* nrf_device){
+void NRF24L01_transmitDMALoop(NRF24L01* nrf_device){
     if(!nrf_device->isWaitingSend){
         return;
     }
@@ -520,7 +523,7 @@ void NRF24L01_transmitDMALoop_New(NRF24L01* nrf_device){
             nrf_device->transmitLoopTXBuffer[0] = NRF_COMMAND_R_REGISTER | NRF_REG_STATUS;
             nrf_device->transmitLoopTXBuffer[1] = NRF_COMMAND_NOP;
 
-            nrf_device->interruptTrigger = false;
+            nrf_device->interruptTrigger--;
             nrf_device->dmaTransmitState = NRF_DMA_TRANSMIT_STATE_CLEAR_INTERRUPT;
 
             nrf_device->NRF_setCSNPin(GPIO_PIN_RESET);
@@ -702,6 +705,17 @@ void NRF24L01_readRegister(NRF24L01* nrf_device, uint8_t regAddr, uint8_t* pRead
 
     while(HAL_SPI_GetState(nrf_device->spiHandler) != HAL_SPI_STATE_READY);
     HAL_SPI_Receive(nrf_device->spiHandler, pReadData, len, 100);
+
+    nrf_device->NRF_setCSNPin(GPIO_PIN_SET);
+}
+
+void NRF24L01_readStatus(NRF24L01* nrf_device){
+    uint8_t command = NRF_COMMAND_NOP;
+
+    nrf_device->NRF_setCSNPin(GPIO_PIN_RESET);
+
+    while(HAL_SPI_GetState(nrf_device->spiHandler) != HAL_SPI_STATE_READY);
+    HAL_SPI_TransmitReceive(nrf_device->spiHandler, &command, &nrf_device->status, 1, 100);
 
     nrf_device->NRF_setCSNPin(GPIO_PIN_SET);
 }
