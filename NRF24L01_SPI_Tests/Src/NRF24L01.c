@@ -489,7 +489,11 @@ void NRF24L01_transmitDMALoop(NRF24L01* nrf_device){
         nrf_device->dmaTransmitState = NRF_DMA_TRANSMIT_STATE_WRITE_PAYLOAD;
         break;
     case NRF_DMA_TRANSMIT_STATE_WRITE_PAYLOAD:
+        // Wait for comformation that the TX has been flushed
         if(nrf_device->txCpltInterrupt){
+            
+            // Now write payload to the NRF
+
             nrf_device->sendBuffer[0] = NRF_COMMAND_W_TX_PAYLOAD;
 
             // Make sure CE is LOW
@@ -503,7 +507,11 @@ void NRF24L01_transmitDMALoop(NRF24L01* nrf_device){
         }
         break;
     case NRF_DMA_TRANSMIT_STATE_START_SEND:
+        // Wait for confirmation that the payload has been written
         if(nrf_device->txCpltInterrupt){
+
+            // Start CE high pulse needed to send payload
+
             nrf_device->sendWaitTime = HAL_GetTick();
             nrf_device->dmaTransmitState = NRF_DMA_TRANSMIT_STATE_FINISH_SEND;
 
@@ -512,13 +520,22 @@ void NRF24L01_transmitDMALoop(NRF24L01* nrf_device){
         break;
     case NRF_DMA_TRANSMIT_STATE_FINISH_SEND:
         // TODO currently wait 1ms only need to wait 10uS have user pass function to facilitate
+        // Wait for pulse to be completed
         if((HAL_GetTick() - nrf_device->sendWaitTime) > 0){
+
+            // End pulse then start wait for confirmation of send
+
             nrf_device->NRF_setCEPin(GPIO_PIN_RESET);
             nrf_device->dmaTransmitState = NRF_DMA_TRANSMIT_STATE_CHECK_INTERRUPT;
         }
         break;
     case NRF_DMA_TRANSMIT_STATE_CHECK_INTERRUPT:
+
+        // Wait for confirmation from NRF of succesful/unsuccesful send
         if(nrf_device->interruptTrigger){
+
+            // After succesfull check if it's due to succesful send or timeout by reading status reg 
+
             // First read status then store
             nrf_device->transmitLoopTXBuffer[0] = NRF_COMMAND_R_REGISTER | NRF_REG_STATUS;
             nrf_device->transmitLoopTXBuffer[1] = NRF_COMMAND_NOP;
@@ -531,11 +548,15 @@ void NRF24L01_transmitDMALoop(NRF24L01* nrf_device){
         }
         break;
     case NRF_DMA_TRANSMIT_STATE_CLEAR_INTERRUPT:
+        // Wait for status to be read which is signaled by txRXCpltInterrupt
         if(nrf_device->txRXCpltInterrupt){
+
+            // Clear interrupts
+
             nrf_device->NRF_setCSNPin(GPIO_PIN_RESET);
             nrf_device->txRXCpltInterrupt = false;
             nrf_device->txCpltInterrupt = false;
-            // Clear interrupts
+
             nrf_device->transmitLoopTXBuffer[0] = NRF_COMMAND_W_REGISTER | NRF_REG_STATUS;
             nrf_device->transmitLoopTXBuffer[1] = NRF_INTERRUPT_MASK;
 
@@ -544,7 +565,11 @@ void NRF24L01_transmitDMALoop(NRF24L01* nrf_device){
         }
         break;
     case NRF_DMA_TRANSMIT_STATE_CONFIRM_INTERRUPT:
+        // Wait for interrupts to be cleared
         if(nrf_device->txCpltInterrupt){
+
+            // Clean up and if success set confirmation variable
+
             nrf_device->txRXCpltInterrupt = false;
 
             if(nrf_device->transmitLoopRXBuffer[1] & NRF_MASK_STATUS_TX_DS || nrf_device->transmitLoopRXBuffer[1] & NRF_MASK_STATUS_MAX_RT){
