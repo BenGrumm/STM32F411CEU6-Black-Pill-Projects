@@ -33,7 +33,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#undef RECEIVER
+#define RECEIVER
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -186,21 +186,16 @@ int main(void)
   {
     // printAddrRegs();
 
-    // if(HAL_SPI_GetState(nrf.spiHandler) == HAL_SPI_STATE_READY){
-    //   NRF24L01_readRegister(&nrf, NRF_REG_STATUS, &nrf.status, 1);
-    //   printf("Status - "BYTE_TO_BINARY_PATTERN"\n", BYTE_TO_BINARY(nrf.status));
-    // }
-
     #ifdef RECEIVER
     if(NRF24L01_receive(&nrf)){
       printf("Val = %s", (volatile char*)nrf.data);
     }
     #else
 
-    NRF24L01_transmitDMALoop_New(&nrf);
+    NRF24L01_transmitDMALoop(&nrf);
     numLoops++;
 
-    if((HAL_GetTick() - sendTime) > 100 && NRF24L01_transmitDMA_New(&nrf, receiverAddr, receiveBuffer, strlen((char*)receiveBuffer))){
+    if((HAL_GetTick() - sendTime) > 100 && NRF24L01_transmitDMA(&nrf, receiverAddr, receiveBuffer, strlen((char*)receiveBuffer))){
       sendCount++;
       sendTime = HAL_GetTick();
       printf("Send: %s \nNum Loop: %ld\n", receiveBuffer, numLoops);
@@ -213,6 +208,12 @@ int main(void)
     #endif
 
     if(HAL_GetTick() - flashTime > 500){
+      // if(HAL_SPI_GetState(nrf.spiHandler) == HAL_SPI_STATE_READY){
+      //   uint8_t regVal = 0;
+      //   NRF24L01_readRegister(&nrf, NRF_REG_CONFIG, &regVal, 1);
+      //   printf("Config - "BYTE_TO_BINARY_PATTERN"\n", BYTE_TO_BINARY(regVal));
+      // }
+
       HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
       flashTime = HAL_GetTick();
     }
@@ -434,7 +435,7 @@ void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *hspi){
 }
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
-  nrf.interruptTrigger = true;
+  nrf.interruptTrigger++;
 }
 
 void setCEPin(GPIO_PinState state){

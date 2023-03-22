@@ -37,10 +37,10 @@ typedef struct {
     void (*NRF_setCSNPin)(GPIO_PinState);
 
     // Internal variables 
-    bool interruptTrigger;              // Set when interrupt is triggered by NRF
+    uint8_t interruptTrigger;              // Set when interrupt is triggered by NRF
     bool hasTransmitted;                // Variable to 
     volatile uint8_t data[32];          // Stores data received
-    uint8_t status;                     // store the last retreived status reg
+    volatile uint8_t status;                     // store the last retreived status reg
     uint8_t dmaTransmitState;           // Used for DMA transmit to not have blocking when transmitting / delaying
     bool txCpltInterrupt;               // Set when completed transmit using dma
     bool rxCpltInterrupt;               // Set when completed receive using dma
@@ -190,10 +190,9 @@ void NRF24L01_readRegister(NRF24L01* nrf_device, uint8_t regAddr, uint8_t* pRead
 void NRF24L01_clearInterrupts(NRF24L01* nrf_device);
 bool NRF24L01_transmit(NRF24L01* nrf_device, uint8_t* receiverAddress, uint8_t* data, uint8_t dataLen);
 bool NRF24L01_transmitDMA(NRF24L01* nrf_device, uint8_t* receiverAddress, uint8_t* data, uint8_t dataLen);
-bool NRF24L01_transmitDMA_New(NRF24L01* nrf_device, uint8_t* receiverAddress, uint8_t* data, uint8_t dataLen);
 void NRF24L01_transmitLoop(NRF24L01* nrf_device);
-void NRF24L01_transmitLoopDMA(NRF24L01* nrf_device);
-void NRF24L01_transmitDMALoop_New(NRF24L01* nrf_device);
+void NRF24L01_transmitDMALoop(NRF24L01* nrf_device);
 void NRF24L01_getLSBToMSBArray(uint64_t valueToConvert, uint8_t* destination);
+void NRF24L01_readStatus(NRF24L01* nrf_device);
 
 #endif
