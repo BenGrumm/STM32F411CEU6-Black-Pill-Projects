@@ -339,7 +339,7 @@ void NRF24L01_getLSBToMSBArray(uint64_t valueToConvert, uint8_t* destination){
  * @return true If data was succesfully read
  * @return false If there was no data to read
  */
-bool NRF24L01_receive(NRF24L01* nrf_device){
+bool NRF24L01_receiveOLD(NRF24L01* nrf_device){
 
     // If using interrupts and interrupt received or not using interrupts
     if((nrf_device->enableRxDrInterrupt && nrf_device->interruptTrigger) || !nrf_device->enableRxDrInterrupt){
@@ -375,6 +375,95 @@ bool NRF24L01_receive(NRF24L01* nrf_device){
         // Clear interrupt
         nrf_device->interruptTrigger--;
         NRF24L01_clearInterrupts(nrf_device);
+
+        NRF24L01_flushRX(nrf_device);
+
+        // Start listening again
+        nrf_device->NRF_setCEPin(GPIO_PIN_SET);
+
+        return true;
+    }
+
+    return false;
+}
+
+/**
+ * @brief Non-blocking function to first check if there is data to receive and if their is then
+ *  read the data and deal with interrupt
+ * 
+ * @param nrf_device The device to read from
+ * @return true If data was succesfully read
+ * @return false If there was no data to read
+ */
+bool NRF24L01_receiveOLD(NRF24L01* nrf_device){
+
+    // If using interrupts and interrupt received or not using interrupts
+    if((nrf_device->enableRxDrInterrupt && nrf_device->interruptTrigger) || !nrf_device->enableRxDrInterrupt){
+        
+
+        // STATE ONE
+
+
+        nrf_device->NRF_setCEPin(GPIO_PIN_RESET);
+        
+        // Check for RX flag
+        NRF24L01_readStatus(nrf_device);
+
+
+
+        // STATE TWO
+
+
+
+        if(!(nrf_device->status & NRF_MASK_STATUS_RX_DR)){
+            // RX flag not set so return false no data
+            nrf_device->NRF_setCEPin(GPIO_PIN_SET);
+
+            // RESET STATES
+
+            return false;
+        }
+
+        // If more than one pipe check which pipe
+        // TODO
+
+        uint8_t payloadWidth = 0;
+
+        if(nrf_device->enableDynamicPlWidth){
+            NRF24L01_readRegister(nrf_device, NRF_COMMAND_R_RX_PL_WID, &payloadWidth, 1);
+        }else{
+            payloadWidth = nrf_device->payloadWidth;
+        }
+
+
+        
+        // STATE 3
+
+
+
+
+        if(payloadWidth <= 32){
+            // Retreive data
+            NRF24L01_readRegister(nrf_device, NRF_COMMAND_R_RX_PAYLOAD, nrf_device->data, payloadWidth);
+        }
+
+
+
+
+        // STATE 4
+
+
+
+
+        // Clear interrupt
+        nrf_device->interruptTrigger--;
+        NRF24L01_clearInterrupts(nrf_device);
+
+
+
+        // STATE 5
+
+
 
         NRF24L01_flushRX(nrf_device);
 
