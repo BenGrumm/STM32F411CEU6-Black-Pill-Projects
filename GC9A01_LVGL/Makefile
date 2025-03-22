@@ -36,6 +36,7 @@ BUILD_DIR = build
 ######################################
 # C sources
 CSRCS =  \
+Core/Src/GC9A01.c \
 Core/Src/main.c \
 Core/Src/gpio.c \
 Core/Src/spi.c \
@@ -75,11 +76,11 @@ Middlewares/Third_Party/FreeRTOS/Source/portable/MemMang/heap_4.c \
 Middlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM4F/port.c
 
 # ASM sources
-ASRCS =  \
+ASM_SOURCES =  \
 startup_stm32f411xe.s
 
 # ASM sources
-ASMM_SOURCES = 
+ASRCS = 
 
 
 #######################################
@@ -143,7 +144,7 @@ C_INCLUDES =  \
 
 
 # compile gcc flags
-AFLAGS = $(MCU) $(AS_DEFS) $(AS_INCLUDES) $(OPT) -Wall -fdata-sections -ffunction-sections
+ASFLAGS = $(MCU) $(AS_DEFS) $(AS_INCLUDES) $(OPT) -Wall -fdata-sections -ffunction-sections
 
 CFLAGS += $(MCU) $(C_DEFS) $(C_INCLUDES) $(OPT) -Wall -fdata-sections -ffunction-sections
 
@@ -186,10 +187,10 @@ all: $(BUILD_DIR)/$(TARGET).elf $(BUILD_DIR)/$(TARGET).hex $(BUILD_DIR)/$(TARGET
 OBJECTS = $(addprefix $(BUILD_DIR)/,$(notdir $(CSRCS:.c=.o)))
 vpath %.c $(sort $(dir $(CSRCS)))
 # list of ASM program objects
-OBJECTS += $(addprefix $(BUILD_DIR)/,$(notdir $(ASRCS:.s=.o)))
-vpath %.s $(sort $(dir $(ASRCS)))
-OBJECTS += $(addprefix $(BUILD_DIR)/,$(notdir $(ASMM_SOURCES:.S=.o)))
-vpath %.S $(sort $(dir $(ASMM_SOURCES)))
+OBJECTS += $(addprefix $(BUILD_DIR)/,$(notdir $(ASM_SOURCES:.s=.o)))
+vpath %.s $(sort $(dir $(ASM_SOURCES)))
+OBJECTS += $(addprefix $(BUILD_DIR)/,$(notdir $(ASRCS:.S=.o)))
+vpath %.S $(sort $(dir $(ASRCS)))
 
 $(BUILD_DIR)/%.o: %.c Makefile | $(BUILD_DIR) 
 	$(CC) -c $(CFLAGS) -Wa,-a,-ad,-alms=$(BUILD_DIR)/$(notdir $(<:.c=.lst)) $< -o $@
