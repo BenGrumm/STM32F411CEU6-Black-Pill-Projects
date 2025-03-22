@@ -553,8 +553,8 @@ int GC9A01_init(void)
 	GC9A01_run_cfg_script();
 
 	// GC9A01_fillScreen(0x0000); // Black
-	// GC9A01_fillScreen(0xFFFF); // White
-	GC9A01_fillScreen(0xAAAA); // ?
+	GC9A01_fillScreen(0xFFFF); // White
+	// GC9A01_fillScreen(0xAAAA); // ?
 
 	return 0;
 }

@@ -48,6 +48,9 @@
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN Variables */
 osThreadId tickTaskHandle;
+/* Declare buffer for 1/10 screen size; BYTES_PER_PIXEL will be 2 for RGB565. */
+#define BYTES_PER_PIXEL (LV_COLOR_FORMAT_GET_SIZE(LV_COLOR_FORMAT_RGB565))
+static uint8_t buf1[240 * 240 / 10 * BYTES_PER_PIXEL];
 /* USER CODE END Variables */
 osThreadId defaultTaskHandle;
 
@@ -104,12 +107,12 @@ void MX_FREERTOS_Init(void) {
 
   /* Create the thread(s) */
   /* definition and creation of defaultTask */
-  osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 128);
+  osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 1024);
   defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
-  osThreadDef(tickTask, StartTickTask, osPriorityNormal, 0, 128);
+  osThreadDef(tickTask, StartTickTask, osPriorityNormal, 0, 1024);
   tickTaskHandle = osThreadCreate(osThread(tickTask), NULL);
   /* USER CODE END RTOS_THREADS */
 
@@ -124,14 +127,24 @@ void MX_FREERTOS_Init(void) {
 /* USER CODE END Header_StartDefaultTask */
 void StartDefaultTask(void const * argument)
 {
+  GC9A01_init();
+
   /* USER CODE BEGIN StartDefaultTask */
   lv_display_t * display1 = lv_display_create(240, 240);
-  /* Declare buffer for 1/10 screen size; BYTES_PER_PIXEL will be 2 for RGB565. */
-  #define BYTES_PER_PIXEL (LV_COLOR_FORMAT_GET_SIZE(LV_COLOR_FORMAT_RGB565))
-  static uint8_t buf1[240 * 240 / 10 * BYTES_PER_PIXEL];
   /* Set display buffer for display `display1`. */
   lv_display_set_buffers(display1, buf1, NULL, sizeof(buf1), LV_DISPLAY_RENDER_MODE_PARTIAL);
   lv_display_set_flush_cb(display1, GC9A01_flush);
+
+  static lv_style_t style;
+  lv_style_init(&style);
+
+  lv_style_set_arc_color(&style, lv_palette_main(LV_PALETTE_RED));
+  lv_style_set_arc_width(&style, 4);
+
+  /*Create an object with the new style*/
+  lv_obj_t * obj = lv_arc_create(lv_screen_active());
+  lv_obj_add_style(obj, &style, 0);
+  lv_obj_center(obj);
 
   /* Infinite loop */
   for(;;)

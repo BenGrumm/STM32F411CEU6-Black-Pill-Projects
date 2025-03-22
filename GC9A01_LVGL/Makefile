@@ -36,6 +36,7 @@ BUILD_DIR = build
 ######################################
 # C sources
 CSRCS =  \
+Core/Src/spi_abstract.c \
 Core/Src/GC9A01.c \
 Core/Src/main.c \
 Core/Src/gpio.c \
@@ -218,6 +219,12 @@ $(BUILD_DIR):
 #######################################
 clean:
 	-rm -fR $(BUILD_DIR)
+
+#######################################
+# openocd flash
+#######################################
+flash: all
+	openocd -f interface/stlink.cfg -f target/stm32f4x.cfg -c "program $(BUILD_DIR)/$(TARGET).elf verify reset exit"
   
 #######################################
 # dependencies

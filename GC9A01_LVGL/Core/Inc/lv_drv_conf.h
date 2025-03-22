@@ -14,13 +14,14 @@
 #define LV_DRV_CONF_H
 
 #include "lv_conf.h"
+#include "spi_abstract.h"
 
 /*********************
  * DELAY INTERFACE
  *********************/
-#define LV_DRV_DELAY_INCLUDE  <stdint.h>            /*Dummy include by default*/
+#define LV_DRV_DELAY_INCLUDE "cmsis_os.h"            /*Dummy include by default*/
 #define LV_DRV_DELAY_US(us)  /*delay_us(us)*/       /*Delay the given number of microseconds*/
-#define LV_DRV_DELAY_MS(ms)  /*delay_ms(ms)*/       /*Delay the given number of milliseconds*/
+#define LV_DRV_DELAY_MS(ms)  osDelay(ms)            /*Delay the given number of milliseconds*/
 
 /*********************
  * DISPLAY INTERFACE
@@ -29,16 +30,16 @@
 /*------------
  *  Common
  *------------*/
-#define LV_DRV_DISP_INCLUDE         <stdint.h>           /*Dummy include by default*/
-#define LV_DRV_DISP_CMD_DATA(val)  /*pin_x_set(val)*/    /*Set the command/data pin to 'val'*/
-#define LV_DRV_DISP_RST(val)       /*pin_x_set(val)*/    /*Set the reset pin to 'val'*/
+#define LV_DRV_DISP_INCLUDE        "spi_abstract.h"       /*Dummy include by default*/
+#define LV_DRV_DISP_CMD_DATA(val)  DISP_SetDataPin(val)   /*Set the command/data pin to 'val'*/
+#define LV_DRV_DISP_RST(val)       DISP_SetResetPin(val)  /*Set the reset pin to 'val'*/
 
 /*---------
  *  SPI
  *---------*/
-#define LV_DRV_DISP_SPI_CS(val)          /*spi_cs_set(val)*/     /*Set the SPI's Chip select to 'val'*/
-#define LV_DRV_DISP_SPI_WR_BYTE(data)    /*spi_wr(data)*/        /*Write a byte the SPI bus*/
-#define LV_DRV_DISP_SPI_WR_ARRAY(adr, n) /*spi_wr_mem(adr, n)*/  /*Write 'n' bytes to SPI bus from 'adr'*/
+#define LV_DRV_DISP_SPI_CS(val)          DISP_SetChipSelectPin(val) /*Set the SPI's Chip select to 'val'*/
+#define LV_DRV_DISP_SPI_WR_BYTE(data)    SPI_Write(data)            /*Write a byte the SPI bus*/
+#define LV_DRV_DISP_SPI_WR_ARRAY(adr, n) SPI_WriteArr(adr, n)       /*Write 'n' bytes to SPI bus from 'adr'*/
 
 /*------------------
  *  Parallel port
