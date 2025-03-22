@@ -5,7 +5,7 @@
             "showDevDebugOutput": "raw",
             "name": "Cortex Debug",
             "cwd": "${workspaceFolder}",
-            "executable": "./build/STM-Quadcopter.elf",
+            "executable": "./build/GC9A01_LVGL.elf",
             "svdFile": "./svd/STM32F411.svd",
             "request": "launch",
             "type": "cortex-debug",

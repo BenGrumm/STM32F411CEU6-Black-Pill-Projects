@@ -25,6 +25,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include <stdio.h>
 #include "lvgl.h"
 #include "GC9A01.h"
 
@@ -61,6 +62,7 @@ void StartTickTask(void const * argument);
 
 void StartDefaultTask(void const * argument);
 
+extern void MX_USB_DEVICE_Init(void);
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
 /* GetIdleTaskMemory prototype (linked to static allocation support) */
@@ -107,7 +109,7 @@ void MX_FREERTOS_Init(void) {
 
   /* Create the thread(s) */
   /* definition and creation of defaultTask */
-  osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 1024);
+  osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 128);
   defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
@@ -127,28 +129,14 @@ void MX_FREERTOS_Init(void) {
 /* USER CODE END Header_StartDefaultTask */
 void StartDefaultTask(void const * argument)
 {
-  GC9A01_init();
-
+  /* init code for USB_DEVICE */
+  MX_USB_DEVICE_Init();
   /* USER CODE BEGIN StartDefaultTask */
-  lv_display_t * display1 = lv_display_create(240, 240);
-  /* Set display buffer for display `display1`. */
-  lv_display_set_buffers(display1, buf1, NULL, sizeof(buf1), LV_DISPLAY_RENDER_MODE_PARTIAL);
-  lv_display_set_flush_cb(display1, GC9A01_flush);
-
-  static lv_style_t style;
-  lv_style_init(&style);
-
-  lv_style_set_arc_color(&style, lv_palette_main(LV_PALETTE_RED));
-  lv_style_set_arc_width(&style, 4);
-
-  /*Create an object with the new style*/
-  lv_obj_t * obj = lv_arc_create(lv_screen_active());
-  lv_obj_add_style(obj, &style, 0);
-  lv_obj_center(obj);
 
   /* Infinite loop */
   for(;;)
   {
+    printf("Loop 1\r\n");
     osDelay(1);
   }
   /* USER CODE END StartDefaultTask */
@@ -159,11 +147,29 @@ void StartDefaultTask(void const * argument)
 void StartTickTask(void const * argument)
 {
   /* USER CODE BEGIN StartDefaultTask */
+  GC9A01_init();
+  lv_init();
+
+  lv_display_t * display1 = lv_display_create(240, 240);
+  /* Set display buffer for display `display1`. */
+  lv_display_set_buffers(display1, buf1, NULL, sizeof(buf1), LV_DISPLAY_RENDER_MODE_PARTIAL);
+  lv_display_set_flush_cb(display1, GC9A01_flush);
+
+  /*Change the active screen's background color*/
+  lv_obj_set_style_bg_color(lv_screen_active(), lv_color_hex(0x003a57), LV_PART_MAIN);
+
+  /*Create a white label, set its text and align it to the center*/
+  lv_obj_t * label = lv_label_create(lv_screen_active());
+  lv_label_set_text(label, "Hello world");
+  lv_obj_set_style_text_color(lv_screen_active(), lv_color_hex(0xffffff), LV_PART_MAIN);
+  lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
 
   /* Infinite loop */
   for(;;)
   {
+    printf("Loop\r\n");
     lv_tick_inc(1);
+    lv_task_handler();
     osDelay(1);
   }
   /* USER CODE END StartDefaultTask */
