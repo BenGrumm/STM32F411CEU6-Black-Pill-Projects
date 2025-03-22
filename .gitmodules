@@ -1,0 +1,3 @@
+[submodule "GC9A01_LVGL/lvgl"]
+	path = GC9A01_LVGL/lvgl
+	url = https://github.com/lvgl/lvgl.git
