@@ -34,7 +34,7 @@ void LCD_1in28_test()
 	
   Paint_DrawImage(gImage_70X70, 85, 25, 70, 70); 
   Paint_DrawString_CN(56,140, "΢ѩ����",   &Font24CN,BLACK,  WHITE);
-  Paint_DrawString_EN(123, 123, "WAVESHARE",&Font16,  BLACK, GREEN); 
+  Paint_DrawString_EN(123, 123, "BEN:0",&Font16,  BLACK, GREEN); 
 	
 	Paint_DrawLine  (120, 120, 70, 70,YELLOW ,DOT_PIXEL_3X3,LINE_STYLE_SOLID);
 	Paint_DrawLine  (120, 120, 176, 64,BLUE ,DOT_PIXEL_3X3,LINE_STYLE_SOLID);
