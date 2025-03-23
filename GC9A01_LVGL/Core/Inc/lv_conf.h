@@ -28,6 +28,7 @@
 
 /*Color depth: 1 (I1), 8 (L8), 16 (RGB565), 24 (RGB888), 32 (XRGB8888)*/
 #define LV_COLOR_DEPTH 16
+#define LV_COLOR_16_SWAP 1
 
 /*=========================
    STDLIB WRAPPER SETTINGS
@@ -76,7 +77,7 @@
 
 /*Default Dot Per Inch. Used to initialize default sizes such as widgets sized, style paddings.
  *(Not so important, you can adjust it to modify default sizes and spaces)*/
-#define LV_DPI_DEF 130     /*[px/inch]*/
+#define LV_DPI_DEF 260     /*[px/inch]*/
 
 /*=================
  * OPERATING SYSTEM
