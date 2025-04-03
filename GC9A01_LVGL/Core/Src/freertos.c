@@ -136,7 +136,7 @@ void StartDefaultTask(void const * argument)
   /* Infinite loop */
   for(;;)
   {
-    printf("Loop 1\r\n");
+    lv_tick_inc(1);
     osDelay(1);
   }
   /* USER CODE END StartDefaultTask */
@@ -165,10 +165,7 @@ void StartTickTask(void const * argument)
   /* Infinite loop */
   for(;;)
   {
-    printf("Loop\r\n");
-    lv_tick_inc(1);
     lv_task_handler();
-    osDelay(1);
   }
   /* USER CODE END StartDefaultTask */
 }
